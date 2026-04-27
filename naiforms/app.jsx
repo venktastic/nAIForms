@@ -68,6 +68,8 @@ function App() {
         </button>
       )}
 
+      <FigmaButton/>
+
       {toast && <Toast message={toast} onDone={() => setToast(null)}/>}
     </>
   );

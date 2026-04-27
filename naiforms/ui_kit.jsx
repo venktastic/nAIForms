@@ -37,7 +37,7 @@ function FigmaButton() {
     try {
       const api = window.figma?.captureForDesign;
       if (!api) throw new Error('Figma capture script not ready');
-      const result = await api({ selector: '.app', delayMs: 150, verbose: false });
+      const result = await api({ selector: 'body', delayMs: 200, verbose: false });
       setState(result?.success === false ? 'error' : 'done');
     } catch {
       setState('error');
@@ -45,15 +45,17 @@ function FigmaButton() {
     setTimeout(() => setState('idle'), 2500);
   }
 
-  const label = state === 'capturing' ? '⏳ Capturing…' : state === 'done' ? '✓ Copied!' : state === 'error' ? '✕ Failed' : '✦ Send to Figma';
-  const bg    = state === 'done' ? 'var(--success)' : state === 'error' ? 'var(--danger)' : '#000';
+  const label = state === 'capturing' ? '⏳ Capturing…' : state === 'done' ? '✓ Copied!' : state === 'error' ? '✕ Failed' : '✦ Figma';
+  const bg    = state === 'done' ? '#1a7f4b' : state === 'error' ? 'var(--danger)' : '#1e1e1e';
 
   return (
     <button onClick={sendToFigma} style={{
-      display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px',
-      background: bg, color: '#fff', border: 'none', borderRadius: 6,
+      position: 'fixed', top: 14, right: 16, zIndex: 9999,
+      display: 'flex', alignItems: 'center', gap: 5, padding: '6px 13px',
+      background: bg, color: '#fff', border: 'none', borderRadius: 7,
       fontSize: 12, fontWeight: 600, cursor: state === 'capturing' ? 'default' : 'pointer',
-      transition: 'background 0.2s', letterSpacing: '0.01em', fontFamily: 'var(--font-sans)'
+      boxShadow: '0 2px 8px rgba(0,0,0,0.22)', transition: 'background 0.2s',
+      letterSpacing: '0.01em', fontFamily: 'var(--font-sans)'
     }}>
       {label}
     </button>
@@ -73,7 +75,6 @@ function TopBar({ crumbs = [], actions }) {
       </div>
       <div className="spacer" />
       {actions}
-      <FigmaButton/>
       <div className="avatar">VM</div>
     </div>
   );
@@ -131,4 +132,4 @@ function PhoneFrame({ children, scale = 1 }) {
   );
 }
 
-Object.assign(window, { Sidebar, TopBar, Badge, Btn, Sev, Switch, Modal, Toast, PhoneFrame });
+Object.assign(window, { Sidebar, TopBar, Badge, Btn, Sev, Switch, Modal, Toast, PhoneFrame, FigmaButton });
