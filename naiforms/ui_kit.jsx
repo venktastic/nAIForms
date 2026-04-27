@@ -28,6 +28,38 @@ function Sidebar({ active, onNav }) {
   );
 }
 
+function FigmaButton() {
+  const [state, setState] = useState('idle'); // idle | capturing | done | error
+
+  async function sendToFigma() {
+    if (state === 'capturing') return;
+    setState('capturing');
+    try {
+      const api = window.figma?.captureForDesign;
+      if (!api) throw new Error('Figma capture script not ready');
+      const result = await api({ selector: '.app', delayMs: 150, verbose: false });
+      setState(result?.success === false ? 'error' : 'done');
+    } catch {
+      setState('error');
+    }
+    setTimeout(() => setState('idle'), 2500);
+  }
+
+  const label = state === 'capturing' ? '⏳ Capturing…' : state === 'done' ? '✓ Copied!' : state === 'error' ? '✕ Failed' : '✦ Send to Figma';
+  const bg    = state === 'done' ? 'var(--success)' : state === 'error' ? 'var(--danger)' : '#000';
+
+  return (
+    <button onClick={sendToFigma} style={{
+      display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px',
+      background: bg, color: '#fff', border: 'none', borderRadius: 6,
+      fontSize: 12, fontWeight: 600, cursor: state === 'capturing' ? 'default' : 'pointer',
+      transition: 'background 0.2s', letterSpacing: '0.01em', fontFamily: 'var(--font-sans)'
+    }}>
+      {label}
+    </button>
+  );
+}
+
 function TopBar({ crumbs = [], actions }) {
   return (
     <div className="topbar">
@@ -41,6 +73,7 @@ function TopBar({ crumbs = [], actions }) {
       </div>
       <div className="spacer" />
       {actions}
+      <FigmaButton/>
       <div className="avatar">VM</div>
     </div>
   );
