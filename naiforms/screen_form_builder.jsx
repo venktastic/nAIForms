@@ -19,6 +19,7 @@ function FormBuilder({ form, onBack, onPublish }) {
   const [showPublish, setShowPublish]= useState(false);
   const [drag, setDrag]              = useState(null);
   const [masterTab, setMasterTab]    = useState('all');
+  const [masterSearch, setMasterSearch] = useState('');
 
   const isInspection = data.formType !== 'statistics';
 
@@ -46,7 +47,7 @@ function FormBuilder({ form, onBack, onPublish }) {
     if (type === 'formula')    base.formula = '';
     if (type === 'attachment') base.name = 'Attachments';
     setData(d => ({ ...d, sections: d.sections.map(s => s.id !== sid ? s : { ...s, fields: [...s.fields, base] }) }));
-    setExpanded(base.id);
+    if (type !== 'attachment') setExpanded(base.id);
   }
   function addMasterField(mf, sid) {
     const target = sid || activeSection;
@@ -57,6 +58,7 @@ function FormBuilder({ form, onBack, onPublish }) {
       fieldType: mf.source === 'formula' ? 'formula' : 'number', required: mf.source === 'user',
     };
     setData(d => ({ ...d, sections: d.sections.map(s => s.id !== target ? s : { ...s, fields: [...s.fields, f] }) }));
+    setExpanded(f.id);
   }
   function updateField(sid, fid, patch) {
     setData(d => ({ ...d, sections: d.sections.map(s => s.id !== sid ? s : { ...s, fields: s.fields.map(f => f.id !== fid ? f : { ...f, ...patch }) }) }));
@@ -81,11 +83,14 @@ function FormBuilder({ form, onBack, onPublish }) {
   }
 
   const totalFields = data.sections.reduce((n, s) => n + s.fields.length, 0);
-  const masterFields = (window.MASTER_FIELDS || []).filter(m => {
-    if (masterTab === 'user')    return m.source === 'user';
-    if (masterTab === 'formula') return m.source === 'formula';
-    return m.source !== 'system';
-  });
+  const masterFields = (window.MASTER_FIELDS || [])
+    .filter(m => {
+      if (masterTab === 'user')    return m.source === 'user';
+      if (masterTab === 'formula') return m.source === 'formula';
+      return m.source !== 'system';
+    })
+    .filter(m => !masterSearch || m.name.toLowerCase().includes(masterSearch.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const cols = isInspection ? '1fr 300px' : '240px 1fr 300px';
 
@@ -94,6 +99,9 @@ function FormBuilder({ form, onBack, onPublish }) {
       <TopBar crumbs={['Forms', data.name || 'Untitled Form']} actions={
         <>
           <Btn variant="ghost" onClick={onBack}>← Library</Btn>
+          {isInspection && (
+            <Btn onClick={() => activeSection && addBlankField(activeSection, 'yes-no-na')}>+ New Field</Btn>
+          )}
           <Btn>Save draft</Btn>
           <Btn variant="primary" onClick={() => setShowPublish(true)}>Publish →</Btn>
         </>
@@ -108,7 +116,7 @@ function FormBuilder({ form, onBack, onPublish }) {
               Master Fields
             </div>
 
-            <div style={{ display:'flex', gap:3, marginBottom:10 }}>
+            <div style={{ display:'flex', gap:3, marginBottom:8 }}>
               {['all','user','formula'].map(t => (
                 <button key={t} onClick={() => setMasterTab(t)}
                   style={{ flex:1, padding:'4px 0', fontSize:11, fontWeight:600, border:`1px solid ${masterTab===t?'var(--brand-500)':'var(--n-200)'}`,
@@ -119,7 +127,26 @@ function FormBuilder({ form, onBack, onPublish }) {
               ))}
             </div>
 
-            <div style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:12 }}>
+            {/* Add new field / formula CTAs */}
+            {masterTab === 'user' && (
+              <button className="btn" style={{ width:'100%', marginBottom:6, fontSize:12 }}
+                onClick={() => activeSection && addBlankField(activeSection, 'number', { source:'user' })}>
+                + New Field
+              </button>
+            )}
+            {masterTab === 'formula' && (
+              <button className="btn" style={{ width:'100%', marginBottom:6, fontSize:12, color:'#ec4899', borderColor:'#ec489960' }}
+                onClick={() => activeSection && addBlankField(activeSection, 'formula', { source:'formula' })}>
+                ƒ New Formula
+              </button>
+            )}
+
+            {/* Search */}
+            <input className="input" style={{ fontSize:12, marginBottom:8, padding:'5px 8px' }}
+              placeholder="🔍 Search fields…"
+              value={masterSearch} onChange={e => setMasterSearch(e.target.value)}/>
+
+            <div style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:12, overflowY:'auto', maxHeight:'calc(100vh - 360px)' }}>
               {masterFields.map(mf => (
                 <div key={mf.id} className="field-lib-item"
                   draggable onDragStart={() => setDrag({ masterField: mf })} onDragEnd={() => setDrag(null)}>
@@ -223,29 +250,9 @@ function FormBuilder({ form, onBack, onPublish }) {
                     />
                   ))}
 
-                  {/* Section-level CTAs */}
-                  {isInspection ? (
-                    <button
-                      style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, width:'100%',
-                        marginTop:section.fields.length?8:0, padding:'8px', border:'1px dashed var(--n-300)',
-                        borderRadius:8, background:'transparent', color:'var(--n-500)', fontSize:12, cursor:'pointer' }}
-                      onClick={e => { e.stopPropagation(); addBlankField(section.id, 'yes-no-na'); }}>
-                      + Add Field
-                    </button>
-                  ) : (
-                    <div style={{ display:'flex', gap:6, marginTop:section.fields.length?8:0 }}>
-                      <button
-                        style={{ flex:1, padding:'8px', border:'1px dashed var(--n-300)', borderRadius:8,
-                          background:'transparent', color:'var(--n-500)', fontSize:12, cursor:'pointer' }}
-                        onClick={e => { e.stopPropagation(); addBlankField(section.id, 'number', { source:'user' }); }}>
-                        + Add Field
-                      </button>
-                      <button
-                        style={{ flex:1, padding:'8px', border:'1px dashed #ec489960', borderRadius:8,
-                          background:'transparent', color:'#ec4899', fontSize:12, cursor:'pointer' }}
-                        onClick={e => { e.stopPropagation(); addBlankField(section.id, 'formula', { source:'formula' }); }}>
-                        ƒ Add Formula
-                      </button>
+                  {section.fields.length === 0 && (
+                    <div style={{ padding:16, textAlign:'center', color:'var(--n-400)', fontSize:12, border:'1px dashed var(--n-300)', borderRadius:8 }}>
+                      {isInspection ? 'Click "+ New Field" in the toolbar above' : 'Add fields from the master panel on the left'}
                     </div>
                   )}
                 </div>
@@ -324,8 +331,8 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
         transition:'border-color 0.12s, background 0.12s', overflow:'hidden' }}>
 
       {/* ── ROW HEADER ── */}
-      <div onClick={onToggle}
-        style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', cursor:'pointer', userSelect:'none' }}>
+      <div onClick={isAttachment ? undefined : onToggle}
+        style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', cursor:isAttachment?'default':'pointer', userSelect:'none' }}>
         <span style={{ color:'var(--n-300)', cursor:'grab', fontSize:14, flexShrink:0 }}
           onMouseDown={e => e.stopPropagation()}>⋮⋮</span>
         <div style={{ flex:1, minWidth:0 }}>
@@ -348,7 +355,7 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
           background:ft.color+'1a', color:ft.color, whiteSpace:'nowrap' }}>
           {ft.icon} {ft.label}{field.fieldType==='number'&&isDecimal?' (Decimal)':''}
         </span>
-        <span style={{ fontSize:10, color:'var(--n-400)', flexShrink:0 }}>{isExpanded?'▲':'▼'}</span>
+        {!isAttachment && <span style={{ fontSize:10, color:'var(--n-400)', flexShrink:0 }}>{isExpanded?'▲':'▼'}</span>}
         <button className="btn ghost icon-only sm" style={{ flexShrink:0 }}
           onClick={e => { e.stopPropagation(); onRemove(); }}>✕</button>
       </div>
