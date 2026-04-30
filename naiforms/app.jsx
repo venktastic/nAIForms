@@ -7,12 +7,12 @@ function App() {
   const [toast, setToast]   = useState(null);
 
   function openForm(f) {
-    // Open existing form from library into universal builder
-    setForm({ id: f.id, name: f.name, sections: [{ id: 's0', title: 'Section 1', fields: [] }] });
+    const formType = f.type === 'Statistics' ? 'statistics' : 'inspection';
+    setForm({ id: f.id, name: f.name, formType, sections: [{ id: 's0', title: 'Section 1', fields: [] }] });
     setScreen('form');
   }
-  function newForm(name = 'Untitled Form') {
-    setForm({ id: 'new-' + Date.now(), name, sections: [{ id: 's0', title: 'Section 1', fields: [] }] });
+  function newForm(name = 'Untitled Form', formType = 'inspection') {
+    setForm({ id: 'new-' + Date.now(), name, formType, sections: [{ id: 's0', title: 'Section 1', fields: [] }] });
     setScreen('form');
   }
   function publish() {
