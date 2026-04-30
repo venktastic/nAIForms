@@ -15,6 +15,7 @@ function ScreenLibrary({ onOpen, onNew }) {
   const [newType, setNewType]       = useState('inspection');
   const [sortCol, setSortCol]       = useState('updated');
   const [sortDir, setSortDir]       = useState('desc');
+  const [typeFilter, setTypeFilter] = useState('all');
 
   function doDeactivate() {
     setForms(fs => fs.map(f => f.id !== confirmDeact.id ? f : { ...f, status: 'draft' }));
@@ -52,6 +53,7 @@ function ScreenLibrary({ onOpen, onNew }) {
 
   const filtered = forms
     .filter(f => !q || f.name.toLowerCase().includes(q.toLowerCase()))
+    .filter(f => typeFilter === 'all' || f.type === typeFilter)
     .sort((a, b) => {
       const dir = sortDir === 'asc' ? 1 : -1;
       if (sortCol === 'name')    return dir * a.name.localeCompare(b.name);
@@ -94,6 +96,26 @@ function ScreenLibrary({ onOpen, onNew }) {
             value={q} onChange={e => setQ(e.target.value)}/>
           <Btn variant="primary" onClick={() => { setNewName(''); setShowNewModal(true); }}>+ New Form</Btn>
         </div>
+      </div>
+
+      {/* Type filter tabs */}
+      <div style={{ padding:'10px 28px 0', borderBottom:'1px solid var(--n-100)', display:'flex', gap:0 }}>
+        {[
+          { key:'all',         label:'All Forms',          count: forms.length },
+          { key:'Inspection',  label:'Inspection',         count: forms.filter(f=>f.type==='Inspection').length },
+          { key:'Statistics',  label:'Statistics Capture', count: forms.filter(f=>f.type==='Statistics').length },
+        ].map(tab => (
+          <button key={tab.key} onClick={() => setTypeFilter(tab.key)}
+            style={{ padding:'8px 18px', fontSize:13, fontWeight:typeFilter===tab.key?600:400, border:'none',
+              borderBottom:`2px solid ${typeFilter===tab.key?'var(--brand-500)':'transparent'}`,
+              background:'transparent', color:typeFilter===tab.key?'var(--brand-700)':'var(--n-500)',
+              cursor:'pointer', display:'flex', alignItems:'center', gap:6, transition:'color 0.1s' }}>
+            {tab.label}
+            <span style={{ fontSize:11, padding:'1px 7px', borderRadius:10, fontWeight:600,
+              background:typeFilter===tab.key?'var(--brand-100)':'var(--n-100)',
+              color:typeFilter===tab.key?'var(--brand-700)':'var(--n-500)' }}>{tab.count}</span>
+          </button>
+        ))}
       </div>
 
       {/* Table */}
