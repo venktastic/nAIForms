@@ -2,32 +2,30 @@
 const { useState } = React;
 
 function App() {
-  const [screen, setScreen] = useState('library'); // library, inspection, stats, schedule, mobile, admin
-  const [form, setForm] = useState(null);
-  const [toast, setToast] = useState(null);
+  const [screen, setScreen] = useState('library');
+  const [form, setForm]     = useState(null);
+  const [toast, setToast]   = useState(null);
 
   function openForm(f) {
-    setForm({ ...window.SAMPLE_STATS, id: f.id, name: f.name, version: f.v, status: f.status });
-    setScreen('stats');
+    // Open existing form from library into universal builder
+    setForm({ id: f.id, name: f.name, sections: [{ id: 's0', title: 'Section 1', fields: [] }] });
+    setScreen('form');
   }
-  function newForm() {
-    setForm({ ...window.SAMPLE_STATS, id: 'new-stats', name: 'Untitled Statistics Form', version: 'v0.1', status: 'draft' });
-    setScreen('stats');
+  function newForm(name = 'Untitled Form') {
+    setForm({ id: 'new-' + Date.now(), name, sections: [{ id: 's0', title: 'Section 1', fields: [] }] });
+    setScreen('form');
   }
   function publish() {
     setToast('Form published — assign it to a project to activate it');
     setScreen('projects');
   }
-  // function schedulePublish() { ... } // reserved for future use
 
-  const isBuilder = screen === 'stats';
-  // const isBuilder = screen === 'inspection' || screen === 'stats' || screen === 'schedule'; // inspection/audit reserved
+  const isBuilder   = screen === 'form';
   const hasOwnTopBar = screen === 'projects';
 
   const sidebarActive =
-    (screen === 'library' || screen === 'stats') ? 'library' :
-    screen === 'projects' ? 'projects' :
-    screen;
+    (screen === 'library' || screen === 'form') ? 'library' :
+    screen === 'projects' ? 'projects' : screen;
 
   return (
     <>
@@ -35,7 +33,7 @@ function App() {
         <MobileHome onExit={() => setScreen('library')}/>
       ) : (
         <div className="app">
-          <Sidebar active={sidebarActive} onNav={(s) => {
+          <Sidebar active={sidebarActive} onNav={s => {
             if (s === 'library')   setScreen('library');
             if (s === 'projects')  setScreen('projects');
             if (s === 'dashboard') setScreen('dashboard');
@@ -51,19 +49,24 @@ function App() {
               <Btn size="sm" onClick={() => setScreen('mobile')}>📱 Open mobile preview</Btn>
             }/>}
 
-            {screen === 'library'    && <ScreenLibrary onOpen={openForm} onNew={newForm}/>}
-            {screen === 'stats'      && <StatsBuilder form={form} onBack={() => setScreen('library')} onPublish={publish}/>}
-            {/* screen === 'inspection' — reserved for future use */}
-            {/* screen === 'schedule'   — now embedded in Project Management */}
-            {screen === 'projects'   && <ScreenAdmin/>}
-            {screen === 'dashboard'  && <Dashboard/>}
-            {screen === 'users'      && <div className="page"><div className="page-head"><h1>User Management</h1><div className="sub">Coming soon</div></div></div>}
+            {screen === 'library'  && <ScreenLibrary onOpen={openForm} onNew={newForm}/>}
+            {screen === 'form'     && <FormBuilder form={form} onBack={() => setScreen('library')} onPublish={publish}/>}
+            {screen === 'projects' && <ScreenAdmin/>}
+            {screen === 'dashboard'&& <Dashboard/>}
+            {screen === 'users'    && <div className="page"><div className="page-head"><h1>User Management</h1><div className="sub">Coming soon</div></div></div>}
+
+            {/* reserved for future use:
+            {screen === 'inspection' && <InspectionBuilder .../>}
+            {screen === 'stats'      && <StatsBuilder .../>}
+            {screen === 'schedule'   && <ScheduleScreen .../>}
+            */}
           </div>
         </div>
       )}
 
       {screen !== 'mobile' && screen !== 'library' && (
-        <button className="btn primary" style={{ position:'fixed', bottom: 20, right: 20, boxShadow:'var(--sh-lg)', zIndex: 50 }} onClick={() => setScreen('mobile')}>
+        <button className="btn primary" style={{ position:'fixed', bottom:20, right:20, boxShadow:'var(--sh-lg)', zIndex:50 }}
+          onClick={() => setScreen('mobile')}>
           📱 Open on mobile
         </button>
       )}

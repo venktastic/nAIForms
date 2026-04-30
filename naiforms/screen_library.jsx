@@ -1,9 +1,11 @@
-// Statistics Capture Forms listing — MUI-style data table
+// Forms Library — all form types, universal builder entry point
 function ScreenLibrary({ onOpen, onNew }) {
   const [q, setQ]                   = useState('');
-  const [forms, setForms]           = useState(window.FORM_LIST.filter(f => f.type === 'Statistics'));
-  const [confirmDeact, setConfirmDeact] = useState(null); // form object to deactivate
-  const [confirmActiv, setConfirmActiv] = useState(null); // form object to activate
+  const [forms, setForms]           = useState(window.FORM_LIST);
+  const [confirmDeact, setConfirmDeact] = useState(null);
+  const [confirmActiv, setConfirmActiv] = useState(null);
+  const [showNewModal, setShowNewModal] = useState(false);
+  const [newName, setNewName]       = useState('');
   const [sortCol, setSortCol]       = useState('updated');
   const [sortDir, setSortDir]       = useState('desc');
 
@@ -14,6 +16,12 @@ function ScreenLibrary({ onOpen, onNew }) {
   function doActivate() {
     setForms(fs => fs.map(f => f.id !== confirmActiv.id ? f : { ...f, status: 'published' }));
     setConfirmActiv(null);
+  }
+  function handleCreate() {
+    const name = newName.trim() || 'Untitled Form';
+    setShowNewModal(false);
+    setNewName('');
+    onNew(name);
   }
 
   function getProjects(formId) {
@@ -29,7 +37,7 @@ function ScreenLibrary({ onOpen, onNew }) {
   }
 
   function sort(col) {
-    if (sortCol === col) { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); }
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortCol(col); setSortDir('asc'); }
   }
 
@@ -38,6 +46,7 @@ function ScreenLibrary({ onOpen, onNew }) {
     .sort((a, b) => {
       const dir = sortDir === 'asc' ? 1 : -1;
       if (sortCol === 'name')    return dir * a.name.localeCompare(b.name);
+      if (sortCol === 'type')    return dir * a.type.localeCompare(b.type);
       if (sortCol === 'status')  return dir * a.status.localeCompare(b.status);
       if (sortCol === 'owner')   return dir * (a.owner||'').localeCompare(b.owner||'');
       if (sortCol === 'updated') return dir * (a.updated||'').localeCompare(b.updated||'');
@@ -48,40 +57,37 @@ function ScreenLibrary({ onOpen, onNew }) {
     ? <span style={{ marginLeft:4, fontSize:10, opacity:0.7 }}>{sortDir==='asc'?'↑':'↓'}</span>
     : <span style={{ marginLeft:4, fontSize:10, opacity:0.25 }}>↕</span>;
 
-  const thStyle = (col, extra={}) => ({
-    padding: '10px 14px', textAlign:'left', fontWeight:600, fontSize:12,
-    color:'var(--n-600)', cursor:'pointer', userSelect:'none', whiteSpace:'nowrap',
-    borderBottom:'2px solid var(--n-200)', borderRight:'1px solid var(--n-100)',
-    background:'var(--n-50)', ...extra
+  const thS = (col, extra={}) => ({
+    padding:'10px 14px', textAlign:'left', fontWeight:600, fontSize:12,
+    color:'var(--n-600)', cursor: col ? 'pointer' : 'default', userSelect:'none', whiteSpace:'nowrap',
+    borderBottom:'2px solid var(--n-200)', borderRight:'1px solid var(--n-100)', background:'var(--n-50)', ...extra
   });
-  const tdStyle = (extra={}) => ({
-    padding:'12px 14px', borderBottom:'1px solid var(--n-100)',
-    borderRight:'1px solid var(--n-100)', verticalAlign:'middle', ...extra
+  const tdS = (extra={}) => ({
+    padding:'12px 14px', borderBottom:'1px solid var(--n-100)', borderRight:'1px solid var(--n-100)', verticalAlign:'middle', ...extra
   });
 
-  // Mock "in-progress" report reference for the deactivate dialog
   function inProgressRef(form) {
     const seed = form.id.replace(/\D/g,'') || '0';
     return form.id.toUpperCase() + '-RPT-' + (parseInt(seed.slice(-3)||0) + 42);
   }
 
+  const typeColor = t => t === 'Statistics' ? 'brand' : t === 'Audit' ? 'info' : 'neutral';
+
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
 
-      {/* Page header */}
-      <div style={{ padding:'20px 28px 0' }}>
-        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:16 }}>
-          <div>
-            <h1 style={{ margin:0, fontSize:20, fontWeight:700 }}>Statistics Capture</h1>
-            <div style={{ fontSize:13, color:'var(--n-500)', marginTop:3 }}>
-              Manage statistics capture forms for your organisation
-            </div>
+      {/* Header */}
+      <div style={{ padding:'20px 28px 16px', borderBottom:'1px solid var(--n-100)', display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
+        <div>
+          <h1 style={{ margin:0, fontSize:20, fontWeight:700 }}>Forms</h1>
+          <div style={{ fontSize:13, color:'var(--n-500)', marginTop:3 }}>
+            Inspections, statistics captures and audits for your organisation
           </div>
-          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <input className="input" style={{ width:240 }} placeholder="🔍 Search forms…"
-              value={q} onChange={e=>setQ(e.target.value)}/>
-            <Btn variant="primary" onClick={() => onNew('statistics')}>+ New Statistics Capture</Btn>
-          </div>
+        </div>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          <input className="input" style={{ width:240 }} placeholder="🔍 Search forms…"
+            value={q} onChange={e => setQ(e.target.value)}/>
+          <Btn variant="primary" onClick={() => { setNewName(''); setShowNewModal(true); }}>+ New Form</Btn>
         </div>
       </div>
 
@@ -90,66 +96,56 @@ function ScreenLibrary({ onOpen, onNew }) {
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
           <thead>
             <tr>
-              <th style={thStyle('id',{cursor:'default'})} onClick={()=>sort('id')}>ID <SortIcon col="id"/></th>
-              <th style={thStyle('name')} onClick={()=>sort('name')}>Name <SortIcon col="name"/></th>
-              <th style={thStyle('structure',{cursor:'default'})}>Structure</th>
-              <th style={thStyle('status')} onClick={()=>sort('status')}>Status <SortIcon col="status"/></th>
-              <th style={thStyle('owner')} onClick={()=>sort('owner')}>Created By <SortIcon col="owner"/></th>
-              <th style={thStyle('updated')} onClick={()=>sort('updated')}>Created On <SortIcon col="updated"/></th>
-              <th style={thStyle('projects',{cursor:'default'})}>Projects Assigned To</th>
-              <th style={{...thStyle(),cursor:'default',textAlign:'center',borderRight:'none'}}>View</th>
-              <th style={{...thStyle(),cursor:'default',textAlign:'center',borderRight:'none'}}>Edit</th>
-              <th style={{...thStyle(),cursor:'default',textAlign:'center',borderRight:'none'}}>Deactivate / Activate</th>
+              <th style={thS('id')}    onClick={() => sort('id')}>ID <SortIcon col="id"/></th>
+              <th style={thS('name')}  onClick={() => sort('name')}>Name <SortIcon col="name"/></th>
+              <th style={thS('type')}  onClick={() => sort('type')}>Type <SortIcon col="type"/></th>
+              <th style={thS(null)}>Structure</th>
+              <th style={thS('status')} onClick={() => sort('status')}>Status <SortIcon col="status"/></th>
+              <th style={thS('owner')} onClick={() => sort('owner')}>Created By <SortIcon col="owner"/></th>
+              <th style={thS('updated')} onClick={() => sort('updated')}>Created On <SortIcon col="updated"/></th>
+              <th style={thS(null)}>Projects Assigned To</th>
+              <th style={{...thS(null), textAlign:'center', borderRight:'none'}}>View</th>
+              <th style={{...thS(null), textAlign:'center', borderRight:'none'}}>Edit</th>
+              <th style={{...thS(null), textAlign:'center', borderRight:'none'}}>Deactivate / Activate</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((f, i) => {
               const isPublished = f.status === 'published';
               const projects = getProjects(f.id);
-              const rowBg = i % 2 === 0 ? '#fff' : 'var(--n-0)';
               return (
-                <tr key={f.id} style={{ background: rowBg }}>
-                  <td style={tdStyle({ fontFamily:'var(--font-mono)', fontSize:11.5, color:'var(--n-500)', whiteSpace:'nowrap' })}>
-                    {f.id.toUpperCase()}
-                  </td>
-                  <td style={tdStyle()}>
+                <tr key={f.id} style={{ background: i % 2 === 0 ? '#fff' : 'var(--n-0)' }}>
+                  <td style={tdS({ fontFamily:'var(--font-mono)', fontSize:11.5, color:'var(--n-500)', whiteSpace:'nowrap' })}>{f.id.toUpperCase()}</td>
+                  <td style={tdS()}>
                     <div style={{ fontWeight:500 }}>{f.name}</div>
                     <div style={{ fontSize:11, color:'var(--n-400)', marginTop:2, fontFamily:'var(--font-mono)' }}>{f.v}</div>
                   </td>
-                  <td style={tdStyle({ color:'var(--n-600)', whiteSpace:'nowrap' })}>
-                    {f.sections} sections · {f.qs} fields
+                  <td style={tdS()}><Badge tone={typeColor(f.type)}>{f.type}</Badge></td>
+                  <td style={tdS({ color:'var(--n-600)', whiteSpace:'nowrap' })}>{f.sections}s · {f.qs} {f.type==='Statistics'?'fields':'questions'}</td>
+                  <td style={tdS()}>
+                    {isPublished ? <Badge tone="success" dot>Published</Badge> : <Badge tone="warning" dot>Draft</Badge>}
                   </td>
-                  <td style={tdStyle()}>
-                    {isPublished
-                      ? <Badge tone="success" dot>Published</Badge>
-                      : <Badge tone="warning" dot>Draft</Badge>}
-                  </td>
-                  <td style={tdStyle({ color:'var(--n-700)' })}>{f.owner}</td>
-                  <td style={tdStyle({ color:'var(--n-500)', whiteSpace:'nowrap' })}>{f.updated}</td>
-                  <td style={tdStyle({ minWidth:160 })}>
+                  <td style={tdS({ color:'var(--n-700)' })}>{f.owner}</td>
+                  <td style={tdS({ color:'var(--n-500)', whiteSpace:'nowrap' })}>{f.updated}</td>
+                  <td style={tdS({ minWidth:140 })}>
                     {projects.length
                       ? projects.map((p,pi) => <div key={pi} style={{ fontSize:12, color:'var(--n-700)' }}>• {p}</div>)
                       : <span style={{ color:'var(--n-300)', fontSize:12 }}>—</span>}
                   </td>
-                  {/* View */}
-                  <td style={{...tdStyle({textAlign:'center',borderRight:'none'})}}>
+                  <td style={{...tdS({ textAlign:'center', borderRight:'none' })}}>
                     {isPublished
                       ? <Btn size="sm" variant="ghost" onClick={e => { e.stopPropagation(); onOpen(f); }}>View</Btn>
                       : <span style={{ color:'var(--n-300)', fontSize:12 }}>—</span>}
                   </td>
-                  {/* Edit */}
-                  <td style={{...tdStyle({textAlign:'center',borderRight:'none'})}}>
+                  <td style={{...tdS({ textAlign:'center', borderRight:'none' })}}>
                     {!isPublished
                       ? <Btn size="sm" variant="ghost" onClick={e => { e.stopPropagation(); onOpen(f); }}>Edit</Btn>
                       : <span style={{ color:'var(--n-300)', fontSize:12 }}>—</span>}
                   </td>
-                  {/* Deactivate / Activate */}
-                  <td style={{...tdStyle({textAlign:'center',borderRight:'none'})}}>
+                  <td style={{...tdS({ textAlign:'center', borderRight:'none' })}}>
                     {isPublished
-                      ? <Btn size="sm" variant="ghost" style={{ color:'var(--danger)' }}
-                          onClick={e => { e.stopPropagation(); setConfirmDeact(f); }}>Deactivate</Btn>
-                      : <Btn size="sm" variant="ghost" style={{ color:'var(--success)' }}
-                          onClick={e => { e.stopPropagation(); setConfirmActiv(f); }}>Activate</Btn>}
+                      ? <Btn size="sm" variant="ghost" style={{ color:'var(--danger)' }} onClick={e => { e.stopPropagation(); setConfirmDeact(f); }}>Deactivate</Btn>
+                      : <Btn size="sm" variant="ghost" style={{ color:'var(--success)' }} onClick={e => { e.stopPropagation(); setConfirmActiv(f); }}>Activate</Btn>}
                   </td>
                 </tr>
               );
@@ -157,41 +153,50 @@ function ScreenLibrary({ onOpen, onNew }) {
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <div style={{ padding:'48px 24px', textAlign:'center', color:'var(--n-400)', fontSize:13 }}>
-            No statistics capture forms found
-          </div>
+          <div style={{ padding:'48px 24px', textAlign:'center', color:'var(--n-400)', fontSize:13 }}>No forms found</div>
         )}
       </div>
 
-      {/* Summary row */}
+      {/* Footer summary */}
       <div style={{ padding:'12px 28px', borderTop:'1px solid var(--n-100)', display:'flex', gap:24, fontSize:12, color:'var(--n-500)' }}>
         <span><strong style={{ color:'var(--n-800)' }}>{forms.length}</strong> total</span>
         <span><strong style={{ color:'var(--success)' }}>{forms.filter(f=>f.status==='published').length}</strong> published</span>
         <span><strong style={{ color:'var(--n-600)' }}>{forms.filter(f=>f.status!=='published').length}</strong> drafts</span>
       </div>
 
+      {/* New form modal */}
+      {showNewModal && (
+        <Modal title="Create new form" onClose={() => setShowNewModal(false)} actions={
+          <>
+            <Btn onClick={() => setShowNewModal(false)}>Cancel</Btn>
+            <Btn variant="primary" onClick={handleCreate}>Create</Btn>
+          </>
+        }>
+          <label className="label">Form name</label>
+          <input className="input" autoFocus value={newName} onChange={e => setNewName(e.target.value)}
+            placeholder="e.g. Daily Site Inspection"
+            onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setShowNewModal(false); }}/>
+          <div style={{ marginTop:10, padding:10, background:'var(--n-50)', borderRadius:8, fontSize:12, color:'var(--n-600)' }}>
+            Opens the form builder. Add sections and fields — then publish to make it available for projects.
+          </div>
+        </Modal>
+      )}
+
       {/* Deactivate confirmation */}
       {confirmDeact && (
         <Modal title="Deactivate form?" onClose={() => setConfirmDeact(null)} actions={
           <>
             <Btn onClick={() => setConfirmDeact(null)}>Cancel</Btn>
-            <Btn variant="primary" style={{ background:'var(--danger)', borderColor:'var(--danger)' }} onClick={doDeactivate}>
-              Deactivate
-            </Btn>
+            <Btn variant="primary" style={{ background:'var(--danger)', borderColor:'var(--danger)' }} onClick={doDeactivate}>Deactivate</Btn>
           </>
         }>
-          <p style={{ marginTop:0 }}>
-            Are you sure you want to deactivate <strong>{confirmDeact.name}</strong>?
-            This will prevent new submissions from being collected.
-          </p>
+          <p style={{ marginTop:0 }}>Are you sure you want to deactivate <strong>{confirmDeact.name}</strong>? This will prevent new submissions.</p>
           <div style={{ padding:12, background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8, fontSize:13 }}>
             <div style={{ fontWeight:600, color:'#92400e', marginBottom:6 }}>⚠ Currently in progress</div>
             <div style={{ fontFamily:'var(--font-mono)', fontSize:12, color:'#78350f' }}>
-              Report ID: {inProgressRef(confirmDeact)}
+              {(() => { const seed = confirmDeact.id.replace(/\D/g,'') || '0'; return confirmDeact.id.toUpperCase() + '-RPT-' + (parseInt(seed.slice(-3)||0) + 42); })()}
             </div>
-            <div style={{ fontSize:12, color:'var(--n-500)', marginTop:4 }}>
-              In-progress entries will not be lost. Deactivating prevents new submissions only.
-            </div>
+            <div style={{ fontSize:12, color:'var(--n-500)', marginTop:4 }}>In-progress entries will not be lost.</div>
           </div>
         </Modal>
       )}
@@ -204,11 +209,8 @@ function ScreenLibrary({ onOpen, onNew }) {
             <Btn variant="primary" onClick={doActivate}>Activate</Btn>
           </>
         }>
-          <p style={{ marginTop:0 }}>
-            Activate <strong>{confirmActiv.name}</strong> and make it available for submission?
-          </p>
+          <p style={{ marginTop:0 }}>Activate <strong>{confirmActiv.name}</strong> and make it available for submission?</p>
           <div style={{ padding:12, background:'var(--n-50)', borderRadius:8, fontSize:13, color:'var(--n-600)' }}>
-            Once active, users with this form assigned to their project will be able to submit it.
             Go to Project Management to assign it to specific projects.
           </div>
         </Modal>
