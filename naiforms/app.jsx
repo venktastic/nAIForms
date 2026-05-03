@@ -16,8 +16,8 @@ function App() {
     setScreen('form');
   }
   function publish() {
-    setToast('Form published — assign it to a project to activate it');
-    setScreen('projects');
+    setToast('Workflow published');
+    setScreen('library');
   }
 
   const isBuilder   = screen === 'form';
