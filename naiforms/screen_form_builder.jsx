@@ -17,6 +17,8 @@ function FormBuilder({ form, onBack, onPublish }) {
   const [activeSection, setActive]   = useState((form?.sections || [blank])[0]?.id || blank.id);
   const [expandedField, setExpanded] = useState(null);
   const [showPublish, setShowPublish]= useState(false);
+  const [publishStep, setPublishStep]= useState(1);
+  const [publishProjects, setPublishProjects] = useState(new Set());
   const [drag, setDrag]              = useState(null);
   const [masterTab, setMasterTab]    = useState('all');
   const [masterSearch, setMasterSearch] = useState('');
@@ -280,19 +282,75 @@ function FormBuilder({ form, onBack, onPublish }) {
 
       </div>
 
-      {showPublish && (
-        <Modal title="Publish form" onClose={() => setShowPublish(false)} actions={
-          <>
-            <Btn onClick={() => setShowPublish(false)}>Cancel</Btn>
-            <Btn variant="primary" onClick={() => { setShowPublish(false); onPublish(); }}>Publish & Map to Project</Btn>
-          </>
-        }>
-          <p style={{ marginTop:0 }}>Publishing makes this form available in the library. Assign it to a project in Project Management to go live.</p>
-          <div style={{ padding:12, background:'var(--n-50)', borderRadius:8, fontSize:13, color:'var(--n-600)' }}>
-            <strong>{totalFields} fields</strong> across <strong>{data.sections.length} sections</strong>
-          </div>
-        </Modal>
-      )}
+      {showPublish && (() => {
+        const allProjects = [];
+        (window.ORG_HIERARCHY || []).forEach(org =>
+          org.subsidiaries.forEach(sub =>
+            sub.projects.forEach(proj => allProjects.push({ id: proj.id, name: proj.name, sub: sub.name }))
+          )
+        );
+        function closePublish() { setShowPublish(false); setPublishStep(1); setPublishProjects(new Set()); }
+        function confirmPublish() { closePublish(); onPublish(); }
+        function toggleProject(id) {
+          setPublishProjects(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+        }
+        return (
+          <Modal
+            title={publishStep === 1 ? 'Publish workflow' : 'Assign to projects'}
+            onClose={closePublish}
+            actions={publishStep === 1 ? (
+              <>
+                <Btn onClick={closePublish}>Cancel</Btn>
+                <Btn variant="primary" onClick={() => setPublishStep(2)}>Next: Assign to projects →</Btn>
+              </>
+            ) : (
+              <>
+                <Btn onClick={() => setPublishStep(1)}>← Back</Btn>
+                <Btn variant="primary" onClick={confirmPublish}>
+                  Publish{publishProjects.size > 0 ? ` & assign to ${publishProjects.size} project${publishProjects.size > 1 ? 's' : ''}` : ' without assigning'}
+                </Btn>
+              </>
+            )}
+          >
+            {publishStep === 1 ? (
+              <>
+                <p style={{ marginTop:0 }}>Publishing makes this workflow available in the library. You can assign it to projects in the next step.</p>
+                <div style={{ padding:12, background:'var(--n-50)', borderRadius:8, fontSize:13, color:'var(--n-600)' }}>
+                  <strong>{totalFields} field{totalFields !== 1 ? 's' : ''}</strong> across <strong>{data.sections.length} section{data.sections.length !== 1 ? 's' : ''}</strong>
+                </div>
+              </>
+            ) : (
+              <>
+                <p style={{ marginTop:0, fontSize:13, color:'var(--n-600)' }}>
+                  Select the projects this workflow should be active on. You can update assignments later in Project Management.
+                </p>
+                <div style={{ display:'flex', flexDirection:'column', gap:5, maxHeight:280, overflowY:'auto' }}>
+                  {allProjects.length === 0 && (
+                    <div style={{ fontSize:13, color:'var(--n-400)', textAlign:'center', padding:16 }}>No projects found</div>
+                  )}
+                  {allProjects.map(proj => (
+                    <label key={proj.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
+                      border:`1px solid ${publishProjects.has(proj.id) ? 'var(--brand-400)' : 'var(--n-200)'}`, borderRadius:8, cursor:'pointer',
+                      background: publishProjects.has(proj.id) ? 'var(--brand-50)' : 'var(--n-0)' }}>
+                      <input type="checkbox" checked={publishProjects.has(proj.id)} onChange={() => toggleProject(proj.id)}/>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:13, fontWeight:publishProjects.has(proj.id) ? 600 : 400 }}>{proj.name}</div>
+                        <div style={{ fontSize:11, color:'var(--n-400)' }}>{proj.sub}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <div style={{ marginTop:8, display:'flex', gap:12 }}>
+                  <button style={{ fontSize:12, color:'var(--brand-600)', background:'none', border:'none', cursor:'pointer', padding:0 }}
+                    onClick={() => setPublishProjects(new Set(allProjects.map(p => p.id)))}>Select all</button>
+                  <button style={{ fontSize:12, color:'var(--n-500)', background:'none', border:'none', cursor:'pointer', padding:0 }}
+                    onClick={() => setPublishProjects(new Set())}>Clear</button>
+                </div>
+              </>
+            )}
+          </Modal>
+        );
+      })()}
     </>
   );
 }
