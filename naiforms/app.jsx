@@ -8,7 +8,7 @@ function App() {
 
   function openForm(f) {
     const formType = f.type === 'Statistics' ? 'statistics' : 'inspection';
-    setForm({ id: f.id, name: f.name, formType, sections: [{ id: 's0', title: 'Section 1', fields: [] }] });
+    setForm({ id: f.id, name: f.name, formType, status: f.status, sections: [{ id: 's0', title: 'Section 1', fields: [] }] });
     setScreen('form');
   }
   function newForm(name = 'Untitled Form', formType = 'inspection') {
