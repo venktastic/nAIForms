@@ -38,22 +38,6 @@ function ScreenAdmin() {
     setAdding(null); setNewName('');
   }
 
-  function patchDetailProj(patch) {
-    setHier(h => h.map(o => ({
-      ...o, subsidiaries: o.subsidiaries.map(s => ({
-        ...s, projects: s.projects.map(p => p.id !== detailProjId ? p : { ...p, ...patch })
-      }))
-    })));
-  }
-
-  function toggleAssign(formId) {
-    const form = window.FORM_LIST.find(f => f.id === formId);
-    if (form.status !== 'published') return;
-    const cur = detailProj.forms;
-    const isAssigned = cur.some(f => f.formId === formId);
-    patchDetailProj({ forms: isAssigned ? cur.filter(f => f.formId !== formId) : [...cur, { formId }] });
-  }
-
   function selectOrg(org) {
     setSelOrgId(org.id);
     const firstSub = org.subsidiaries[0];
@@ -91,43 +75,58 @@ function ScreenAdmin() {
             ))}
           </div>
 
-          {detailTab === 'forms' && (
-            <div className="card" style={{ padding: 0 }}>
-              <table className="tbl">
-                <thead>
-                  <tr>
-                    <th>Form</th>
-                    <th>Type</th>
-                    <th>Version</th>
-                    <th>Library Status</th>
-                    <th style={{ textAlign:'center', width: 120 }}>Assign to Project</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {window.FORM_LIST.map(f => {
-                    const assigned = !!detailProj.forms.find(x => x.formId === f.id);
-                    const isDraft = f.status !== 'published';
-                    return (
-                      <tr key={f.id} style={{ opacity: assigned ? 1 : 0.5 }}>
-                        <td>
-                          <div style={{ fontWeight: assigned ? 600 : 400 }}>{f.name}</div>
-                          <div style={{ fontSize: 11, color:'var(--n-500)', fontFamily:'var(--font-mono)', marginTop: 2 }}>{f.id.toUpperCase()} · {f.sections}s · {f.qs}q</div>
-                        </td>
-                        <td>
-                          <Badge tone={assigned ? (f.type==='Statistics'?'brand':f.type==='Audit'?'info':'neutral') : 'neutral'}>{f.type}</Badge>
-                        </td>
-                        <td style={{ fontFamily:'var(--font-mono)', fontSize: 12, color:'var(--n-500)' }}>{f.v}</td>
-                        <td>{f.status === 'published' ? <Badge tone="success" dot>Published</Badge> : <Badge tone="warning" dot>Draft</Badge>}</td>
-                        <td style={{ textAlign:'center' }}>
-                          <Switch on={assigned} onChange={() => toggleAssign(f.id)} disabled={isDraft}/>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {detailTab === 'forms' && (() => {
+            // Read assignments directly from ORG_HIERARCHY (stays in sync with Workflow Builder)
+            const assignedIds = new Set();
+            (window.ORG_HIERARCHY || []).forEach(org =>
+              org.subsidiaries.forEach(sub =>
+                sub.projects.forEach(p => {
+                  if (p.id === detailProjId) p.forms.forEach(a => assignedIds.add(a.formId));
+                })
+              )
+            );
+            const assignedForms = window.FORM_LIST.filter(f => assignedIds.has(f.id));
+            return (
+              <div>
+                <div style={{ marginBottom:16, padding:'10px 14px', background:'var(--n-50)', border:'1px solid var(--n-200)',
+                  borderRadius:8, fontSize:13, color:'var(--n-600)' }}>
+                  Form assignments are managed from <strong>Workflow Builder</strong>. Open a workflow and click <strong>Manage</strong> to assign or remove it from projects.
+                </div>
+                {assignedForms.length === 0 ? (
+                  <div className="card" style={{ padding:'40px 24px', textAlign:'center', color:'var(--n-400)', fontSize:13 }}>
+                    No workflows assigned to this project yet.
+                  </div>
+                ) : (
+                  <div className="card" style={{ padding:0 }}>
+                    <table className="tbl">
+                      <thead>
+                        <tr>
+                          <th>Workflow</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {assignedForms.map(f => (
+                          <tr key={f.id}>
+                            <td>
+                              <div style={{ fontWeight:500 }}>{f.name}</div>
+                              <div style={{ fontSize:11, color:'var(--n-500)', fontFamily:'var(--font-mono)', marginTop:2 }}>{f.id}</div>
+                            </td>
+                            <td><Badge tone={f.type==='Statistics'?'brand':f.type==='Audit'?'info':'neutral'}>{f.type}</Badge></td>
+                            <td>
+                              {f.status === 'published'   && <Badge tone="success" dot>Published</Badge>}
+                              {f.status === 'deactivated' && <Badge tone="danger"  dot>Deactivated</Badge>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {detailTab === 'schedule' && (() => {
             const assignedForms = detailProj.forms

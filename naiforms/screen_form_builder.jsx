@@ -315,16 +315,16 @@ function FormBuilder({ form, onBack, onPublish }) {
           setPublishProjects(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
         }
         return (
-          <Modal title="Publish workflow" onClose={closePublish} actions={
+          <Modal title="Publish Form" onClose={closePublish} actions={
             <>
               <Btn onClick={closePublish}>Cancel</Btn>
-              <Btn variant="primary" onClick={confirmPublish}>
-                Publish{publishProjects.size > 0 ? ` on ${publishProjects.size} project${publishProjects.size > 1 ? 's' : ''}` : ''}
+              <Btn variant="primary" disabled={publishProjects.size === 0} onClick={confirmPublish}>
+                Publish to Selected Projects
               </Btn>
             </>
           }>
             <p style={{ marginTop:0, fontSize:13, color:'var(--n-600)' }}>
-              Select the projects where this workflow will be active.
+              Select the projects where this form will be available. At least one project is required.
             </p>
             <div style={{ display:'flex', flexDirection:'column', gap:5, maxHeight:300, overflowY:'auto' }}>
               {allProjects.length === 0 && (
@@ -339,10 +339,13 @@ function FormBuilder({ form, onBack, onPublish }) {
                     <div style={{ fontSize:13, fontWeight:publishProjects.has(proj.id)?600:400 }}>{proj.name}</div>
                     <div style={{ fontSize:11, color:'var(--n-400)' }}>{proj.sub}</div>
                   </div>
-                  {publishProjects.has(proj.id) && <Badge tone="success">Active</Badge>}
+                  {publishProjects.has(proj.id) && <Badge tone="success">Assigned</Badge>}
                 </label>
               ))}
             </div>
+            {publishProjects.size === 0 && (
+              <div style={{ marginTop:8, fontSize:12, color:'var(--danger)' }}>Select at least one project to publish.</div>
+            )}
             <div style={{ marginTop:8, display:'flex', gap:12 }}>
               <button style={{ fontSize:12, color:'var(--brand-600)', background:'none', border:'none', cursor:'pointer', padding:0 }}
                 onClick={() => setPublishProjects(new Set(allProjects.map(p => p.id)))}>Select all</button>

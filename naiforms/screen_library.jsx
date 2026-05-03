@@ -8,37 +8,40 @@ function SortIcon({ col, sortCol, sortDir }) {
 function ScreenLibrary({ onOpen, onNew }) {
   const [q, setQ]             = useState('');
   const [forms, setForms]     = useState(window.FORM_LIST);
-  // Publish / Re-publish modal (draft + deactivated forms)
-  const [publishForm, setPublishForm] = useState(null);
-  const [publishSel,  setPublishSel]  = useState(new Set());
-  // Active-on-projects modal (published forms only)
-  const [projectsForm, setProjectsForm] = useState(null);
-  const [projectsSel,  setProjectsSel]  = useState(new Set());
-  // Deactivate confirmation
-  const [deactForm, setDeactForm] = useState(null);
-  // Create new workflow modal
+  const [manageFormId, setManageFormId] = useState(null);
+  const [confirmModal, setConfirmModal] = useState(null);
+  const [publishForm,  setPublishForm]  = useState(null);
+  const [publishSel,   setPublishSel]   = useState(new Set());
   const [showNewModal, setShowNewModal] = useState(false);
-  const [newName, setNewName]   = useState('');
-  const [newType, setNewType]   = useState('statistics');
-  // Sort / filter
-  const [sortCol, setSortCol]   = useState('updated');
-  const [sortDir, setSortDir]   = useState('desc');
+  const [newName, setNewName] = useState('');
+  const [newType, setNewType] = useState('statistics');
+  const [sortCol, setSortCol] = useState('updated');
+  const [sortDir, setSortDir] = useState('desc');
   const [typeFilter, setTypeFilter] = useState('all');
 
-  // ── helpers ────────────────────────────────────────────────────────────────
-  function getProjectObjects(formId) {
-    const out = [];
+  // ── helpers ───────────────────────────────────────────────────────────────
+  function getAssignedProjectIds(formId) {
+    const ids = new Set();
     (window.ORG_HIERARCHY || []).forEach(org =>
       org.subsidiaries.forEach(sub =>
         sub.projects.forEach(proj => {
-          if (proj.forms.some(a => a.formId === formId))
-            out.push({ id: proj.id, name: proj.name, subName: sub.name });
+          if (proj.forms.some(a => a.formId === formId)) ids.add(proj.id);
         })
       )
     );
-    return out;
+    return ids;
   }
-  function getProjectNames(formId) { return getProjectObjects(formId).map(p => p.name); }
+  function getProjectNames(formId) {
+    const names = [];
+    (window.ORG_HIERARCHY || []).forEach(org =>
+      org.subsidiaries.forEach(sub =>
+        sub.projects.forEach(proj => {
+          if (proj.forms.some(a => a.formId === formId)) names.push(proj.name);
+        })
+      )
+    );
+    return names;
+  }
   function getAllProjects() {
     const out = [];
     (window.ORG_HIERARCHY || []).forEach(org =>
@@ -48,59 +51,56 @@ function ScreenLibrary({ onOpen, onNew }) {
     );
     return out;
   }
-  function applyAssignments(formId, sel) {
+  function mutateAssign(formId, projId) {
     (window.ORG_HIERARCHY || []).forEach(org =>
       org.subsidiaries.forEach(sub =>
         sub.projects.forEach(proj => {
-          const want = sel.has(proj.id);
-          const has  = proj.forms.some(a => a.formId === formId);
-          if (want && !has) proj.forms.push({ formId });
-          if (!want && has) proj.forms = proj.forms.filter(a => a.formId !== formId);
+          if (proj.id === projId && !proj.forms.some(a => a.formId === formId))
+            proj.forms.push({ formId });
+        })
+      )
+    );
+    setForms(fs => [...fs]);
+  }
+  function mutateRemove(formId, projId) {
+    (window.ORG_HIERARCHY || []).forEach(org =>
+      org.subsidiaries.forEach(sub =>
+        sub.projects.forEach(proj => {
+          if (proj.id === projId)
+            proj.forms = proj.forms.filter(a => a.formId !== formId);
         })
       )
     );
     setForms(fs => [...fs]);
   }
 
-  // ── publish / re-publish ───────────────────────────────────────────────────
+  // ── publish (draft → published) ───────────────────────────────────────────
   function openPublish(f) {
-    setPublishSel(new Set(getProjectObjects(f.id).map(p => p.id)));
+    setPublishSel(new Set(getAssignedProjectIds(f.id)));
     setPublishForm(f);
   }
   function closePublish() { setPublishForm(null); setPublishSel(new Set()); }
   function doPublish() {
-    applyAssignments(publishForm.id, publishSel);
+    if (publishSel.size === 0) return;
+    const formId = publishForm.id;
+    getAllProjects().forEach(proj => {
+      const want = publishSel.has(proj.id);
+      (window.ORG_HIERARCHY || []).forEach(org =>
+        org.subsidiaries.forEach(sub =>
+          sub.projects.forEach(p => {
+            if (p.id !== proj.id) return;
+            const has = p.forms.some(a => a.formId === formId);
+            if (want && !has) p.forms.push({ formId });
+            if (!want && has) p.forms = p.forms.filter(a => a.formId !== formId);
+          })
+        )
+      );
+    });
     setForms(fs => fs.map(f => f.id !== publishForm.id ? f : { ...f, status: 'published' }));
     closePublish();
   }
 
-  // ── active-on-projects (published forms) ──────────────────────────────────
-  function openProjects(f) {
-    setProjectsSel(new Set(getProjectObjects(f.id).map(p => p.id)));
-    setProjectsForm(f);
-  }
-  function closeProjects() { setProjectsForm(null); setProjectsSel(new Set()); }
-  function doSaveProjects() {
-    applyAssignments(projectsForm.id, projectsSel);
-    closeProjects();
-  }
-
-  // ── deactivate ─────────────────────────────────────────────────────────────
-  function doDeactivate() {
-    // clear all project associations and move to Deactivated
-    const formId = deactForm.id;
-    (window.ORG_HIERARCHY || []).forEach(org =>
-      org.subsidiaries.forEach(sub =>
-        sub.projects.forEach(proj => {
-          proj.forms = proj.forms.filter(a => a.formId !== formId);
-        })
-      )
-    );
-    setForms(fs => fs.map(f => f.id !== deactForm.id ? f : { ...f, status: 'deactivated' }));
-    setDeactForm(null);
-  }
-
-  // ── create / duplicate ─────────────────────────────────────────────────────
+  // ── create / duplicate ────────────────────────────────────────────────────
   function handleCreate() {
     const defaultName = newType === 'statistics' ? 'Untitled Statistics Capture' : 'Untitled Inspection';
     const name = newName.trim() || defaultName;
@@ -120,6 +120,164 @@ function ScreenLibrary({ onOpen, onNew }) {
     else { setSortCol(col); setSortDir('asc'); }
   }
 
+  // ── manage detail view ────────────────────────────────────────────────────
+  if (manageFormId) {
+    const mf = forms.find(f => f.id === manageFormId);
+    if (!mf) { setManageFormId(null); return null; }
+
+    const assignedIds = getAssignedProjectIds(mf.id);
+    const allProjects = getAllProjects();
+
+    const CONFIRM_CONFIGS = {
+      deactivate: {
+        title: 'Deactivate Form?',
+        body: 'This will disable the form across all assigned projects. Users will no longer be able to submit this form.',
+        cta: 'Deactivate Form',
+        danger: true,
+        onConfirm: () => {
+          setForms(fs => fs.map(f => f.id !== mf.id ? f : { ...f, status: 'deactivated' }));
+          setConfirmModal(null);
+        },
+      },
+      activate: {
+        title: 'Activate Form?',
+        body: 'This will make the form available again for its assigned projects.',
+        cta: 'Activate Form',
+        danger: false,
+        onConfirm: () => {
+          setForms(fs => fs.map(f => f.id !== mf.id ? f : { ...f, status: 'published' }));
+          setConfirmModal(null);
+        },
+      },
+      remove: {
+        title: 'Remove Project Access?',
+        body: `This form will no longer be available for ${confirmModal?.projName}. Existing submissions should remain unaffected.`,
+        cta: 'Remove Project',
+        danger: true,
+        onConfirm: () => { mutateRemove(mf.id, confirmModal.projId); setConfirmModal(null); },
+      },
+      assign: {
+        title: 'Assign Form to Project?',
+        body: `This form will become available for users in ${confirmModal?.projName}.`,
+        cta: 'Assign Project',
+        danger: false,
+        onConfirm: () => { mutateAssign(mf.id, confirmModal.projId); setConfirmModal(null); },
+      },
+    };
+
+    return (
+      <>
+        <TopBar crumbs={['Workflows', mf.name]} actions={
+          <Btn variant="ghost" onClick={() => { setManageFormId(null); setConfirmModal(null); }}>← Workflows</Btn>
+        }/>
+        <div className="page">
+          <div className="page-head">
+            <div>
+              <h1 style={{ fontWeight:700, marginBottom:4 }}>{mf.name}</h1>
+              <div className="sub" style={{ display:'flex', gap:10, alignItems:'center' }}>
+                <Badge tone={mf.type==='Statistics'?'brand':mf.type==='Audit'?'info':'neutral'}>{mf.type}</Badge>
+                <span>{mf.sections} section{mf.sections!==1?'s':''} · {mf.qs} {mf.type==='Statistics'?'fields':'questions'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Global Status ── */}
+          <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', color:'var(--n-500)', letterSpacing:'0.06em', marginBottom:10 }}>
+            Global Status
+          </div>
+          <div className="card" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:28 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              {mf.status === 'published'   && <Badge tone="success" dot>Published</Badge>}
+              {mf.status === 'deactivated' && <Badge tone="danger"  dot>Deactivated</Badge>}
+              <span style={{ fontSize:13, color:'var(--n-500)' }}>
+                {mf.status === 'published'   ? 'Active on assigned projects' : 'Disabled across all projects'}
+              </span>
+            </div>
+            {mf.status === 'published' && (
+              <Btn style={{ color:'var(--danger)' }} onClick={() => setConfirmModal({ type:'deactivate' })}>
+                Deactivate Form
+              </Btn>
+            )}
+            {mf.status === 'deactivated' && (
+              <Btn variant="primary" style={{ background:'var(--success)', borderColor:'var(--success)' }}
+                onClick={() => setConfirmModal({ type:'activate' })}>
+                Activate Form
+              </Btn>
+            )}
+          </div>
+
+          {/* ── Project Availability ── */}
+          <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', color:'var(--n-500)', letterSpacing:'0.06em', marginBottom:10 }}>
+            Project Availability
+          </div>
+          <div className="card" style={{ padding:0 }}>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Project Name</th>
+                  <th>Availability</th>
+                  <th style={{ textAlign:'center', width:120 }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allProjects.map(proj => {
+                  const assigned = assignedIds.has(proj.id);
+                  return (
+                    <tr key={proj.id}>
+                      <td>
+                        <div style={{ fontWeight:500 }}>{proj.name}</div>
+                        <div style={{ fontSize:11, color:'var(--n-400)' }}>{proj.subName}</div>
+                      </td>
+                      <td>
+                        {assigned
+                          ? <Badge tone="success" dot>Assigned</Badge>
+                          : <Badge tone="neutral">Not Assigned</Badge>}
+                      </td>
+                      <td style={{ textAlign:'center' }}>
+                        {assigned
+                          ? <Btn size="sm" variant="ghost" style={{ color:'var(--danger)' }}
+                              onClick={() => setConfirmModal({ type:'remove', projId:proj.id, projName:proj.name })}>
+                              Remove
+                            </Btn>
+                          : <Btn size="sm" variant="ghost"
+                              onClick={() => setConfirmModal({ type:'assign', projId:proj.id, projName:proj.name })}>
+                              Assign
+                            </Btn>}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {allProjects.length === 0 && (
+                  <tr><td colSpan={3} style={{ textAlign:'center', color:'var(--n-400)', padding:32, fontSize:13 }}>
+                    No projects in organisation
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Confirmation modals */}
+        {confirmModal && (() => {
+          const cfg = CONFIRM_CONFIGS[confirmModal.type];
+          return (
+            <Modal title={cfg.title} onClose={() => setConfirmModal(null)} actions={
+              <>
+                <Btn onClick={() => setConfirmModal(null)}>Cancel</Btn>
+                <Btn variant="primary" style={cfg.danger ? { background:'var(--danger)', borderColor:'var(--danger)' } : {}} onClick={cfg.onConfirm}>
+                  {cfg.cta}
+                </Btn>
+              </>
+            }>
+              <p style={{ marginTop:0 }}>{cfg.body}</p>
+            </Modal>
+          );
+        })()}
+      </>
+    );
+  }
+
+  // ── listing view ──────────────────────────────────────────────────────────
   const filtered = forms
     .filter(f => !q || f.name.toLowerCase().includes(q.toLowerCase()))
     .filter(f => typeFilter === 'all' || f.type === typeFilter)
@@ -143,44 +301,6 @@ function ScreenLibrary({ onOpen, onNew }) {
   });
   const typeColor = t => t === 'Statistics' ? 'brand' : t === 'Audit' ? 'info' : 'neutral';
 
-  const allProjects = getAllProjects();
-
-  // reusable project checklist (used in both publish and active-on-projects modals)
-  function ProjectChecklist({ sel, setSel, caption }) {
-    return (
-      <>
-        {caption && <p style={{ marginTop:0, fontSize:13, color:'var(--n-600)' }}>{caption}</p>}
-        <div style={{ display:'flex', flexDirection:'column', gap:5, maxHeight:260, overflowY:'auto' }}>
-          {allProjects.length === 0 && (
-            <div style={{ fontSize:13, color:'var(--n-400)', textAlign:'center', padding:16 }}>No projects found</div>
-          )}
-          {allProjects.map(proj => (
-            <label key={proj.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px',
-              border:`1px solid ${sel.has(proj.id)?'var(--brand-400)':'var(--n-200)'}`, borderRadius:8, cursor:'pointer',
-              background: sel.has(proj.id) ? 'var(--brand-50)' : 'var(--n-0)' }}>
-              <input type="checkbox" checked={sel.has(proj.id)} onChange={e => setSel(prev => {
-                const next = new Set(prev);
-                if (e.target.checked) next.add(proj.id); else next.delete(proj.id);
-                return next;
-              })}/>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, fontWeight: sel.has(proj.id) ? 600 : 400 }}>{proj.name}</div>
-                <div style={{ fontSize:11, color:'var(--n-400)' }}>{proj.subName}</div>
-              </div>
-              {sel.has(proj.id) && <Badge tone="success">Active</Badge>}
-            </label>
-          ))}
-        </div>
-        <div style={{ marginTop:8, display:'flex', gap:12 }}>
-          <button style={{ fontSize:12, color:'var(--brand-600)', background:'none', border:'none', cursor:'pointer', padding:0 }}
-            onClick={() => setSel(new Set(allProjects.map(p => p.id)))}>Select all</button>
-          <button style={{ fontSize:12, color:'var(--n-500)', background:'none', border:'none', cursor:'pointer', padding:0 }}
-            onClick={() => setSel(new Set())}>Clear all</button>
-        </div>
-      </>
-    );
-  }
-
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
 
@@ -193,7 +313,9 @@ function ScreenLibrary({ onOpen, onNew }) {
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
           <input className="input" style={{ width:240 }} placeholder="🔍 Search workflows…"
             value={q} onChange={e => setQ(e.target.value)}/>
-          <Btn variant="primary" onClick={() => { setNewName(''); setNewType('statistics'); setShowNewModal(true); }}>+ Create New Workflow</Btn>
+          <Btn variant="primary" onClick={() => { setNewName(''); setNewType('statistics'); setShowNewModal(true); }}>
+            + Create New Workflow
+          </Btn>
         </div>
       </div>
 
@@ -232,7 +354,6 @@ function ScreenLibrary({ onOpen, onNew }) {
               <th style={thS(null)}>Active on</th>
               <th style={{...thS(null), textAlign:'center', borderRight:'none'}}>Open</th>
               <th style={{...thS(null), textAlign:'center', borderRight:'none'}}></th>
-              <th style={{...thS(null), textAlign:'center', borderRight:'none'}}></th>
             </tr>
           </thead>
           <tbody>
@@ -245,8 +366,8 @@ function ScreenLibrary({ onOpen, onNew }) {
                     <div style={{ display:'flex', alignItems:'center', gap:5 }}>
                       <span style={{ fontWeight:500 }}>{f.name}</span>
                       <button title="Duplicate" onClick={e => { e.stopPropagation(); doDuplicate(f); }}
-                        style={{ background:'none', border:'none', cursor:'pointer', color:'var(--n-300)', fontSize:13,
-                          padding:'1px 4px', borderRadius:4, lineHeight:1, flexShrink:0 }}
+                        style={{ background:'none', border:'none', cursor:'pointer', color:'var(--n-300)',
+                          fontSize:13, padding:'1px 4px', borderRadius:4, lineHeight:1, flexShrink:0 }}
                         onMouseOver={e => e.currentTarget.style.color='var(--n-600)'}
                         onMouseOut={e => e.currentTarget.style.color='var(--n-300)'}>⎘</button>
                     </div>
@@ -268,37 +389,19 @@ function ScreenLibrary({ onOpen, onNew }) {
                       ? projects.map((p,pi) => <div key={pi} style={{ fontSize:12, color:'var(--n-700)' }}>• {p}</div>)
                       : <span style={{ color:'var(--n-300)', fontSize:12 }}>—</span>}
                   </td>
-                  {/* Open */}
                   <td style={{...tdS({ textAlign:'center', borderRight:'none' })}}>
                     <Btn size="sm" variant="ghost" onClick={e => { e.stopPropagation(); onOpen(f); }}>
                       {f.status === 'published' ? 'View' : 'Edit'}
                     </Btn>
                   </td>
-                  {/* Project action — context-sensitive */}
                   <td style={{...tdS({ textAlign:'center', borderRight:'none' })}}>
-                    {f.status === 'published' && (
-                      <Btn size="sm" variant="ghost" onClick={e => { e.stopPropagation(); openProjects(f); }}>
-                        Active on projects
-                      </Btn>
-                    )}
-                    {f.status === 'draft' && (
+                    {f.status === 'draft' ? (
                       <Btn size="sm" variant="primary" onClick={e => { e.stopPropagation(); openPublish(f); }}>
                         Publish →
                       </Btn>
-                    )}
-                    {f.status === 'deactivated' && (
-                      <Btn size="sm" variant="ghost" style={{ color:'var(--success)' }}
-                        onClick={e => { e.stopPropagation(); openPublish(f); }}>
-                        Re-publish →
-                      </Btn>
-                    )}
-                  </td>
-                  {/* Deactivate — published only */}
-                  <td style={{...tdS({ textAlign:'center', borderRight:'none' })}}>
-                    {f.status === 'published' && (
-                      <Btn size="sm" variant="ghost" style={{ color:'var(--danger)' }}
-                        onClick={e => { e.stopPropagation(); setDeactForm(f); }}>
-                        Deactivate
+                    ) : (
+                      <Btn size="sm" variant="ghost" onClick={e => { e.stopPropagation(); setManageFormId(f.id); }}>
+                        Manage
                       </Btn>
                     )}
                   </td>
@@ -347,61 +450,48 @@ function ScreenLibrary({ onOpen, onNew }) {
         </Modal>
       )}
 
-      {/* Publish / Re-publish modal */}
-      {publishForm && (
-        <Modal
-          title={publishForm.status === 'deactivated' ? `Re-publish — ${publishForm.name}` : `Publish — ${publishForm.name}`}
-          onClose={closePublish}
-          actions={
-            <><Btn onClick={closePublish}>Cancel</Btn>
-            <Btn variant="primary" onClick={doPublish}>
-              {publishForm.status === 'deactivated' ? 'Re-publish' : 'Publish'}
-              {publishSel.size > 0 ? ` on ${publishSel.size} project${publishSel.size>1?'s':''}` : ' — no projects selected'}
-            </Btn></>
-          }
-        >
-          <ProjectChecklist
-            sel={publishSel} setSel={setPublishSel}
-            caption="Select the projects where this workflow will be active."
-          />
-        </Modal>
-      )}
-
-      {/* Active on projects modal (published forms) */}
-      {projectsForm && (
-        <Modal title={`Active on projects — ${projectsForm.name}`} onClose={closeProjects} actions={
-          <><Btn onClick={closeProjects}>Cancel</Btn><Btn variant="primary" onClick={doSaveProjects}>Save changes</Btn></>
-        }>
-          <ProjectChecklist
-            sel={projectsSel} setSel={setProjectsSel}
-            caption="Checked projects are where this workflow is currently active. Uncheck to remove it from a project."
-          />
-        </Modal>
-      )}
-
-      {/* Deactivate confirmation */}
-      {deactForm && (() => {
-        const affected = getProjectObjects(deactForm.id);
+      {/* Publish modal */}
+      {publishForm && (() => {
+        const allProjects = getAllProjects();
         return (
-          <Modal title="Deactivate workflow?" onClose={() => setDeactForm(null)} actions={
-            <><Btn onClick={() => setDeactForm(null)}>Cancel</Btn>
-            <Btn variant="primary" style={{ background:'var(--danger)', borderColor:'var(--danger)' }} onClick={doDeactivate}>
-              Deactivate
-            </Btn></>
+          <Modal title="Publish Form" onClose={closePublish} actions={
+            <>
+              <Btn onClick={closePublish}>Cancel</Btn>
+              <Btn variant="primary" disabled={publishSel.size === 0} onClick={doPublish}>
+                Publish to Selected Projects
+              </Btn>
+            </>
           }>
-            <p style={{ marginTop:0 }}>
-              <strong>{deactForm.name}</strong> will be moved to Deactivated and removed from all projects. No new submissions will be accepted.
+            <p style={{ marginTop:0, fontSize:13, color:'var(--n-600)' }}>
+              Select the projects where this form will be available. At least one project is required.
             </p>
-            {affected.length > 0 && (
-              <div style={{ padding:12, background:'var(--n-50)', borderRadius:8, fontSize:13 }}>
-                <div style={{ fontWeight:600, color:'var(--n-700)', marginBottom:6 }}>Will be removed from:</div>
-                {affected.map(p => (
-                  <div key={p.id} style={{ fontSize:12, color:'var(--n-600)', marginBottom:3 }}>
-                    • {p.name} <span style={{ color:'var(--n-400)' }}>({p.subName})</span>
+            <div style={{ display:'flex', flexDirection:'column', gap:5, maxHeight:280, overflowY:'auto' }}>
+              {allProjects.map(proj => (
+                <label key={proj.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px',
+                  border:`1px solid ${publishSel.has(proj.id)?'var(--brand-400)':'var(--n-200)'}`, borderRadius:8, cursor:'pointer',
+                  background: publishSel.has(proj.id) ? 'var(--brand-50)' : 'var(--n-0)' }}>
+                  <input type="checkbox" checked={publishSel.has(proj.id)} onChange={e => setPublishSel(prev => {
+                    const next = new Set(prev);
+                    if (e.target.checked) next.add(proj.id); else next.delete(proj.id);
+                    return next;
+                  })}/>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, fontWeight:publishSel.has(proj.id)?600:400 }}>{proj.name}</div>
+                    <div style={{ fontSize:11, color:'var(--n-400)' }}>{proj.subName}</div>
                   </div>
-                ))}
-              </div>
+                  {publishSel.has(proj.id) && <Badge tone="success">Assigned</Badge>}
+                </label>
+              ))}
+            </div>
+            {publishSel.size === 0 && (
+              <div style={{ marginTop:8, fontSize:12, color:'var(--danger)' }}>Select at least one project to publish.</div>
             )}
+            <div style={{ marginTop:8, display:'flex', gap:12 }}>
+              <button style={{ fontSize:12, color:'var(--brand-600)', background:'none', border:'none', cursor:'pointer', padding:0 }}
+                onClick={() => setPublishSel(new Set(allProjects.map(p => p.id)))}>Select all</button>
+              <button style={{ fontSize:12, color:'var(--n-500)', background:'none', border:'none', cursor:'pointer', padding:0 }}
+                onClick={() => setPublishSel(new Set())}>Clear</button>
+            </div>
           </Modal>
         );
       })()}
