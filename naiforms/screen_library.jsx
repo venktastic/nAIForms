@@ -44,7 +44,7 @@ function ScreenLibrary({ onOpen, onNew }) {
   }
   function doDeactivate() {
     applyAssignments(manageForm.id, manageSel);
-    setForms(fs => fs.map(f => f.id !== manageForm.id ? f : { ...f, status: 'draft' }));
+    setForms(fs => fs.map(f => f.id !== manageForm.id ? f : { ...f, status: 'deactivated' }));
     closeManage();
   }
   function doSaveAssignments() {
@@ -208,7 +208,9 @@ function ScreenLibrary({ onOpen, onNew }) {
                     <div style={{ fontSize:11.5, color:'var(--n-400)', marginTop:2 }}>{f.qs} {f.type==='Statistics'?'fields':'questions'}</div>
                   </td>
                   <td style={tdS()}>
-                    {isPublished ? <Badge tone="success" dot>Published</Badge> : <Badge tone="warning" dot>Draft</Badge>}
+                    {f.status === 'published'   && <Badge tone="success" dot>Published</Badge>}
+                    {f.status === 'draft'       && <Badge tone="warning" dot>Draft</Badge>}
+                    {f.status === 'deactivated' && <Badge tone="danger" dot>Deactivated</Badge>}
                   </td>
                   <td style={tdS({ color:'var(--n-700)' })}>{f.owner}</td>
                   <td style={tdS({ color:'var(--n-500)', whiteSpace:'nowrap', fontSize:12 })}>{f.updated}</td>
@@ -219,7 +221,7 @@ function ScreenLibrary({ onOpen, onNew }) {
                   </td>
                   <td style={{...tdS({ textAlign:'center', borderRight:'none' })}}>
                     <Btn size="sm" variant="ghost" onClick={e => { e.stopPropagation(); onOpen(f); }}>
-                      {isPublished ? 'View' : 'Edit'}
+                      {f.status === 'published' ? 'View' : 'Edit'}
                     </Btn>
                   </td>
                   <td style={{...tdS({ textAlign:'center', borderRight:'none' })}}>
@@ -227,7 +229,7 @@ function ScreenLibrary({ onOpen, onNew }) {
                   </td>
                   <td style={{...tdS({ textAlign:'center', borderRight:'none' })}}>
                     <Btn size="sm" variant="ghost" onClick={e => { e.stopPropagation(); openManage(f); }}>
-                      {isPublished ? 'Manage' : 'Activate'}
+                      {f.status === 'published' ? 'Manage' : 'Activate'}
                     </Btn>
                   </td>
                 </tr>
@@ -244,7 +246,8 @@ function ScreenLibrary({ onOpen, onNew }) {
       <div style={{ padding:'12px 28px', borderTop:'1px solid var(--n-100)', display:'flex', gap:24, fontSize:12, color:'var(--n-500)' }}>
         <span><strong style={{ color:'var(--n-800)' }}>{forms.length}</strong> total</span>
         <span><strong style={{ color:'var(--success)' }}>{forms.filter(f=>f.status==='published').length}</strong> published</span>
-        <span><strong style={{ color:'var(--n-600)' }}>{forms.filter(f=>f.status!=='published').length}</strong> drafts</span>
+        <span><strong style={{ color:'var(--n-600)' }}>{forms.filter(f=>f.status==='draft').length}</strong> drafts</span>
+        <span><strong style={{ color:'var(--danger)' }}>{forms.filter(f=>f.status==='deactivated').length}</strong> deactivated</span>
       </div>
 
       {/* Create new workflow modal */}
