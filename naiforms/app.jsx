@@ -49,7 +49,7 @@ function App() {
               <Btn size="sm" onClick={() => setScreen('mobile')}>📱 Open mobile preview</Btn>
             }/>}
 
-            {screen === 'library'  && <ScreenLibrary onOpen={openForm} onNew={newForm} onNavProjects={() => setScreen('projects')}/>}
+            {screen === 'library'  && <ScreenLibrary onOpen={openForm} onNew={newForm}/>}
             {screen === 'form'     && <FormBuilder form={form} onBack={() => setScreen('library')} onPublish={publish}/>}
             {screen === 'projects' && <ScreenAdmin/>}
             {screen === 'dashboard'&& <Dashboard/>}

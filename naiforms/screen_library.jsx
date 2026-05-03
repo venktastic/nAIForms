@@ -5,13 +5,14 @@ function SortIcon({ col, sortCol, sortDir }) {
     : <span style={{ marginLeft:4, fontSize:10, opacity:0.25 }}>↕</span>;
 }
 
-function ScreenLibrary({ onOpen, onNew, onNavProjects }) {
+function ScreenLibrary({ onOpen, onNew }) {
   const [q, setQ]                   = useState('');
   const [forms, setForms]           = useState(window.FORM_LIST);
   const [confirmDeact, setConfirmDeact] = useState(null);
   const [confirmActiv, setConfirmActiv] = useState(null);
   const [deactSel, setDeactSel]     = useState(new Set());
   const [manageForm, setManageForm] = useState(null);
+  const [manageSel, setManageSel]   = useState(new Set());
   const [showNewModal, setShowNewModal] = useState(false);
   const [newName, setNewName]       = useState('');
   const [newType, setNewType]       = useState('statistics');
@@ -36,6 +37,28 @@ function ScreenLibrary({ onOpen, onNew, onNavProjects }) {
     setNewType('statistics');
     onNew(name, newType);
   }
+  function openManage(f) {
+    const cur = getProjectObjectsForForm(f.id);
+    setManageSel(new Set(cur.map(p => p.id)));
+    setManageForm(f);
+  }
+  function saveManage() {
+    const formId = manageForm.id;
+    (window.ORG_HIERARCHY || []).forEach(org =>
+      org.subsidiaries.forEach(sub =>
+        sub.projects.forEach(proj => {
+          const want = manageSel.has(proj.id);
+          const has  = proj.forms.some(a => a.formId === formId);
+          if (want && !has)  proj.forms.push({ formId });
+          if (!want && has)  proj.forms = proj.forms.filter(a => a.formId !== formId);
+        })
+      )
+    );
+    setManageForm(null);
+    setManageSel(new Set());
+    setForms(fs => [...fs]);
+  }
+
   function doDuplicate(f) {
     const formType = f.type === 'Statistics' ? 'statistics' : 'inspection';
     const copy = {
@@ -197,7 +220,7 @@ function ScreenLibrary({ onOpen, onNew, onNavProjects }) {
                   </td>
                   <td style={{...tdS({ textAlign:'center', borderRight:'none' })}}>
                     {isPublished
-                      ? <Btn size="sm" variant="ghost" onClick={e => { e.stopPropagation(); setManageForm(f); }}>Manage</Btn>
+                      ? <Btn size="sm" variant="ghost" onClick={e => { e.stopPropagation(); openManage(f); }}>Manage</Btn>
                       : <span style={{ color:'var(--n-300)', fontSize:12 }}>—</span>}
                   </td>
                   <td style={{...tdS({ textAlign:'center', borderRight:'none' })}}>
@@ -324,41 +347,52 @@ function ScreenLibrary({ onOpen, onNew, onNavProjects }) {
 
       {/* Manage project assignments modal */}
       {manageForm && (() => {
-        const assignedProjs = getProjectObjectsForForm(manageForm.id);
+        const allProjs = [];
+        (window.ORG_HIERARCHY || []).forEach(org =>
+          org.subsidiaries.forEach(sub =>
+            sub.projects.forEach(proj => allProjs.push({ id: proj.id, name: proj.name, subName: sub.name }))
+          )
+        );
         return (
-          <Modal title={`Project assignments — ${manageForm.name}`} onClose={() => setManageForm(null)} actions={
+          <Modal title={`Assign to projects — ${manageForm.name}`} onClose={() => { setManageForm(null); setManageSel(new Set()); }} actions={
             <>
-              {onNavProjects && (
-                <Btn onClick={() => { setManageForm(null); onNavProjects(); }}>Open Project Management →</Btn>
-              )}
-              <Btn variant="primary" onClick={() => setManageForm(null)}>Done</Btn>
+              <Btn onClick={() => { setManageForm(null); setManageSel(new Set()); }}>Cancel</Btn>
+              <Btn variant="primary" onClick={saveManage}>
+                Save{manageSel.size > 0 ? ` (${manageSel.size} project${manageSel.size > 1 ? 's' : ''})` : ' — remove all'}
+              </Btn>
             </>
           }>
-            <div style={{ fontSize:13, color:'var(--n-600)', marginBottom:10 }}>
-              {assignedProjs.length > 0
-                ? `Assigned to ${assignedProjs.length} project${assignedProjs.length > 1 ? 's' : ''}.`
-                : 'Not assigned to any projects yet.'}
-            </div>
+            <p style={{ marginTop:0, fontSize:13, color:'var(--n-600)' }}>
+              Select which projects this workflow should be active on.
+            </p>
             <div style={{ display:'flex', flexDirection:'column', gap:5, maxHeight:280, overflowY:'auto' }}>
-              {assignedProjs.length === 0
-                ? <div style={{ padding:'24px 0', textAlign:'center', color:'var(--n-300)', fontSize:13 }}>
-                    No project assignments found.
+              {allProjs.length === 0 && (
+                <div style={{ fontSize:13, color:'var(--n-400)', textAlign:'center', padding:16 }}>No projects found</div>
+              )}
+              {allProjs.map(proj => (
+                <label key={proj.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px',
+                  border:`1px solid ${manageSel.has(proj.id) ? 'var(--brand-400)' : 'var(--n-200)'}`, borderRadius:8, cursor:'pointer',
+                  background: manageSel.has(proj.id) ? 'var(--brand-50)' : 'var(--n-0)' }}>
+                  <input type="checkbox"
+                    checked={manageSel.has(proj.id)}
+                    onChange={e => setManageSel(prev => {
+                      const next = new Set(prev);
+                      if (e.target.checked) next.add(proj.id); else next.delete(proj.id);
+                      return next;
+                    })}/>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, fontWeight:manageSel.has(proj.id) ? 600 : 400 }}>{proj.name}</div>
+                    <div style={{ fontSize:11, color:'var(--n-400)' }}>{proj.subName}</div>
                   </div>
-                : assignedProjs.map(proj => (
-                  <div key={proj.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px',
-                    border:'1px solid var(--brand-200)', borderRadius:8, background:'var(--brand-50)' }}>
-                    <div style={{ width:8, height:8, borderRadius:'50%', background:'var(--success)', flexShrink:0 }}/>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontSize:13, fontWeight:600 }}>{proj.name}</div>
-                      <div style={{ fontSize:11, color:'var(--n-500)' }}>{proj.subName}</div>
-                    </div>
-                    <Badge tone="success">Active</Badge>
-                  </div>
-                ))
-              }
+                  {manageSel.has(proj.id) && <Badge tone="success">Assigned</Badge>}
+                </label>
+              ))}
             </div>
-            <div style={{ marginTop:12, padding:12, background:'var(--n-50)', borderRadius:8, fontSize:12, color:'var(--n-500)' }}>
-              To add or remove assignments, go to Project Management › select a project › Forms tab.
+            <div style={{ marginTop:8, display:'flex', gap:12 }}>
+              <button style={{ fontSize:12, color:'var(--brand-600)', background:'none', border:'none', cursor:'pointer', padding:0 }}
+                onClick={() => setManageSel(new Set(allProjs.map(p => p.id)))}>Select all</button>
+              <button style={{ fontSize:12, color:'var(--n-500)', background:'none', border:'none', cursor:'pointer', padding:0 }}
+                onClick={() => setManageSel(new Set())}>Clear all</button>
             </div>
           </Modal>
         );

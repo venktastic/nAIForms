@@ -290,7 +290,19 @@ function FormBuilder({ form, onBack, onPublish }) {
           )
         );
         function closePublish() { setShowPublish(false); setPublishStep(1); setPublishProjects(new Set()); }
-        function confirmPublish() { closePublish(); onPublish(); }
+        function confirmPublish() {
+          const formId = data.id;
+          (window.ORG_HIERARCHY || []).forEach(org =>
+            org.subsidiaries.forEach(sub =>
+              sub.projects.forEach(proj => {
+                if (publishProjects.has(proj.id) && !proj.forms.some(a => a.formId === formId))
+                  proj.forms.push({ formId });
+              })
+            )
+          );
+          closePublish();
+          onPublish();
+        }
         function toggleProject(id) {
           setPublishProjects(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
         }
