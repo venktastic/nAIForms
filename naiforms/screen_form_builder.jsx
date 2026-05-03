@@ -96,7 +96,7 @@ function FormBuilder({ form, onBack, onPublish }) {
 
   return (
     <>
-      <TopBar crumbs={['Forms', data.name || 'Untitled Form']} actions={
+      <TopBar crumbs={['Workflows', data.name || 'Untitled Workflow']} actions={
         <>
           <Btn variant="ghost" onClick={onBack}>← Library</Btn>
           {isInspection && (
@@ -165,19 +165,6 @@ function FormBuilder({ form, onBack, onPublish }) {
               )}
             </div>
 
-            <hr className="hr"/>
-
-            <div style={{ fontSize:11, fontWeight:600, color:'var(--n-500)', marginBottom:6 }}>Special</div>
-            <div className="field-lib-item" style={{ cursor:'pointer' }}
-              onClick={() => activeSection && addBlankField(activeSection, 'attachment', { source:'user' })}>
-              <div className="fi-icon" style={{ background:'#64748b18', color:'#64748b', fontSize:14 }}>📎</div>
-              <div className="fi-name">
-                <div style={{ fontWeight:500, fontSize:12 }}>Attachments</div>
-                <div style={{ fontSize:10.5, color:'var(--n-400)' }}>File upload</div>
-              </div>
-              <button className="btn sm"
-                onClick={e => { e.stopPropagation(); activeSection && addBlankField(activeSection, 'attachment', { source:'user' }); }}>+</button>
-            </div>
           </div>
         )}
 

@@ -177,12 +177,12 @@ window.MASTER_FIELDS = [
 ];
 
 window.FORM_LIST = [
-  { id:'f1', name:'Daily Site Safety Inspection',   type:'Inspection', sections:6, qs:42, status:'published', v:'v3.2', owner:'HSE Manager', updated:'2d ago', scheduled:true },
-  { id:'f2', name:'Monthly Fire Safety Audit',      type:'Audit',      sections:4, qs:28, status:'published', v:'v1.4', owner:'S. Raman',     updated:'2w ago', scheduled:true },
-  { id:'f3', name:'Scaffold Pre-Use Checklist',     type:'Inspection', sections:3, qs:14, status:'draft',     v:'v0.3', owner:'J. Patel',     updated:'3h ago', scheduled:false },
-  { id:'f4', name:'Weekly Stats — Manhours & KPIs', type:'Statistics', sections:3, qs:11, status:'published', v:'v2.0', owner:'HSE Manager', updated:'1w ago', scheduled:true },
-  { id:'f5', name:'Monthly TRIR / LTIFR Reporting', type:'Statistics', sections:3, qs:18, status:'published', v:'v4.1', owner:'A. Kumar',    updated:'5d ago', scheduled:true },
-  { id:'f6', name:'Crane Pre-Op Check',             type:'Inspection', sections:2, qs:9,  status:'draft',     v:'v0.1', owner:'Ahmed K.',     updated:'1h ago', scheduled:false },
+  { id:'INSPFLOW1',  name:'Daily Site Safety Inspection',   type:'Inspection', sections:6, qs:42, status:'published', v:'v3.2', owner:'Ahmed Al-Rashid',  updated:'01 May 2026, 09:30 AM', scheduled:true  },
+  { id:'AUDITFLOW1', name:'Monthly Fire Safety Audit',      type:'Audit',      sections:4, qs:28, status:'published', v:'v1.4', owner:'Sanjay Raman',     updated:'19 Apr 2026, 02:15 PM', scheduled:true  },
+  { id:'INSPFLOW2',  name:'Scaffold Pre-Use Checklist',     type:'Inspection', sections:3, qs:14, status:'draft',     v:'v0.3', owner:'Jai Patel',        updated:'03 May 2026, 07:45 AM', scheduled:false },
+  { id:'STATSFLOW1', name:'Weekly Stats — Manhours & KPIs', type:'Statistics', sections:3, qs:11, status:'published', v:'v2.0', owner:'Ahmed Al-Rashid',  updated:'26 Apr 2026, 11:00 AM', scheduled:true  },
+  { id:'STATSFLOW2', name:'Monthly TRIR / LTIFR Reporting', type:'Statistics', sections:3, qs:18, status:'published', v:'v4.1', owner:'Arun Kumar',       updated:'28 Apr 2026, 03:30 PM', scheduled:true  },
+  { id:'INSPFLOW3',  name:'Crane Pre-Op Check',             type:'Inspection', sections:2, qs:9,  status:'draft',     v:'v0.1', owner:'Ahmed Khalil',     updated:'03 May 2026, 09:00 AM', scheduled:false },
 ];
 
 window.ORG_HIERARCHY = [
@@ -192,15 +192,15 @@ window.ORG_HIERARCHY = [
       {
         id: 'sub1', name: 'Qatar Operations',
         projects: [
-          { id: 'prj1', name: 'Lusail Tower', forms: [{ formId:'f1', enabled:true }, { formId:'f4', enabled:true }] },
-          { id: 'prj2', name: 'North Wharf Development', forms: [{ formId:'f2', enabled:true }, { formId:'f1', enabled:false }] },
+          { id: 'prj1', name: 'Lusail Tower', forms: [{ formId:'INSPFLOW1', enabled:true }, { formId:'STATSFLOW1', enabled:true }] },
+          { id: 'prj2', name: 'North Wharf Development', forms: [{ formId:'AUDITFLOW1', enabled:true }, { formId:'INSPFLOW1', enabled:false }] },
           { id: 'prj3', name: 'Hamad Port Expansion', forms: [] },
         ]
       },
       {
         id: 'sub2', name: 'UAE Operations',
         projects: [
-          { id: 'prj4', name: 'Dubai Creek Tower', forms: [{ formId:'f1', enabled:true }] },
+          { id: 'prj4', name: 'Dubai Creek Tower', forms: [{ formId:'INSPFLOW1', enabled:true }] },
           { id: 'prj5', name: 'Abu Dhabi HQ', forms: [] },
         ]
       },

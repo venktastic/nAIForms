@@ -18,7 +18,7 @@ function Sidebar({ active, onNav }) {
       <button className={"sidebar-item " + (active==='projects'?'active':'')} onClick={()=>onNav('projects')}><span className="icon">▢</span> Project Management</button>
 
       <div className="sidebar-section">Masters</div>
-      <button className={"sidebar-item " + (active==='library'?'active':'')} onClick={()=>onNav('library')}><span className="icon">☑</span> Forms <span className="badge">24</span></button>
+      <button className={"sidebar-item " + (active==='library'?'active':'')} onClick={()=>onNav('library')}><span className="icon">☑</span> Workflow Builder</button>
 
       <div style={{ marginTop:'auto', padding: '16px 10px', fontSize: 11, color: 'var(--n-500)' }}>
         <div style={{ opacity: 0.7 }}>Navatech Group</div>

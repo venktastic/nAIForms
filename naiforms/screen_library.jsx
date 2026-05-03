@@ -1,4 +1,4 @@
-// Forms Library — all form types, universal builder entry point
+// Workflow Builder Library
 function SortIcon({ col, sortCol, sortDir }) {
   return sortCol === col
     ? <span style={{ marginLeft:4, fontSize:10, opacity:0.7 }}>{sortDir==='asc'?'↑':'↓'}</span>
@@ -12,7 +12,7 @@ function ScreenLibrary({ onOpen, onNew }) {
   const [confirmActiv, setConfirmActiv] = useState(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [newName, setNewName]       = useState('');
-  const [newType, setNewType]       = useState('inspection');
+  const [newType, setNewType]       = useState('statistics');
   const [sortCol, setSortCol]       = useState('updated');
   const [sortDir, setSortDir]       = useState('desc');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -30,7 +30,7 @@ function ScreenLibrary({ onOpen, onNew }) {
     const name = newName.trim() || defaultName;
     setShowNewModal(false);
     setNewName('');
-    setNewType('inspection');
+    setNewType('statistics');
     onNew(name, newType);
   }
 
@@ -86,22 +86,22 @@ function ScreenLibrary({ onOpen, onNew }) {
       {/* Header */}
       <div style={{ padding:'20px 28px 16px', borderBottom:'1px solid var(--n-100)', display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
         <div>
-          <h1 style={{ margin:0, fontSize:20, fontWeight:700 }}>Forms</h1>
+          <h1 style={{ margin:0, fontSize:20, fontWeight:700 }}>Workflow Builder</h1>
           <div style={{ fontSize:13, color:'var(--n-500)', marginTop:3 }}>
-            Inspections, statistics captures and audits for your organisation
+            Inspections and statistics captures for your organisation
           </div>
         </div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-          <input className="input" style={{ width:240 }} placeholder="🔍 Search forms…"
+          <input className="input" style={{ width:240 }} placeholder="🔍 Search workflows…"
             value={q} onChange={e => setQ(e.target.value)}/>
-          <Btn variant="primary" onClick={() => { setNewName(''); setShowNewModal(true); }}>+ New Form</Btn>
+          <Btn variant="primary" onClick={() => { setNewName(''); setNewType('statistics'); setShowNewModal(true); }}>+ Create New Workflow</Btn>
         </div>
       </div>
 
       {/* Type filter tabs */}
       <div style={{ padding:'10px 28px 0', borderBottom:'1px solid var(--n-100)', display:'flex', gap:0 }}>
         {[
-          { key:'all',         label:'All Forms',          count: forms.length },
+          { key:'all',         label:'All Workflows',      count: forms.length },
           { key:'Inspection',  label:'Inspection',         count: forms.filter(f=>f.type==='Inspection').length },
           { key:'Statistics',  label:'Statistics Capture', count: forms.filter(f=>f.type==='Statistics').length },
         ].map(tab => (
@@ -142,18 +142,21 @@ function ScreenLibrary({ onOpen, onNew }) {
               const projects = getProjects(f.id);
               return (
                 <tr key={f.id} style={{ background: i % 2 === 0 ? '#fff' : 'var(--n-0)' }}>
-                  <td style={tdS({ fontFamily:'var(--font-mono)', fontSize:11.5, color:'var(--n-500)', whiteSpace:'nowrap' })}>{f.id.toUpperCase()}</td>
+                  <td style={tdS({ fontFamily:'var(--font-mono)', fontSize:11.5, color:'var(--n-500)', whiteSpace:'nowrap' })}>{f.id}</td>
                   <td style={tdS()}>
                     <div style={{ fontWeight:500 }}>{f.name}</div>
                     <div style={{ fontSize:11, color:'var(--n-400)', marginTop:2, fontFamily:'var(--font-mono)' }}>{f.v}</div>
                   </td>
                   <td style={tdS()}><Badge tone={typeColor(f.type)}>{f.type}</Badge></td>
-                  <td style={tdS({ color:'var(--n-600)', whiteSpace:'nowrap' })}>{f.sections}s · {f.qs} {f.type==='Statistics'?'fields':'questions'}</td>
+                  <td style={tdS({ color:'var(--n-600)' })}>
+                    <div style={{ fontSize:12, fontWeight:500 }}>{f.sections} section{f.sections!==1?'s':''}</div>
+                    <div style={{ fontSize:11.5, color:'var(--n-400)', marginTop:2 }}>{f.qs} {f.type==='Statistics'?'fields':'questions'}</div>
+                  </td>
                   <td style={tdS()}>
                     {isPublished ? <Badge tone="success" dot>Published</Badge> : <Badge tone="warning" dot>Draft</Badge>}
                   </td>
                   <td style={tdS({ color:'var(--n-700)' })}>{f.owner}</td>
-                  <td style={tdS({ color:'var(--n-500)', whiteSpace:'nowrap' })}>{f.updated}</td>
+                  <td style={tdS({ color:'var(--n-500)', whiteSpace:'nowrap', fontSize:12 })}>{f.updated}</td>
                   <td style={tdS({ minWidth:140 })}>
                     {projects.length
                       ? projects.map((p,pi) => <div key={pi} style={{ fontSize:12, color:'var(--n-700)' }}>• {p}</div>)
@@ -180,7 +183,7 @@ function ScreenLibrary({ onOpen, onNew }) {
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <div style={{ padding:'48px 24px', textAlign:'center', color:'var(--n-400)', fontSize:13 }}>No forms found</div>
+          <div style={{ padding:'48px 24px', textAlign:'center', color:'var(--n-400)', fontSize:13 }}>No workflows found</div>
         )}
       </div>
 
@@ -191,30 +194,30 @@ function ScreenLibrary({ onOpen, onNew }) {
         <span><strong style={{ color:'var(--n-600)' }}>{forms.filter(f=>f.status!=='published').length}</strong> drafts</span>
       </div>
 
-      {/* New form modal */}
+      {/* Create new workflow modal */}
       {showNewModal && (
-        <Modal title="Create new form" onClose={() => setShowNewModal(false)} actions={
+        <Modal title="Create new workflow" onClose={() => setShowNewModal(false)} actions={
           <>
             <Btn onClick={() => setShowNewModal(false)}>Cancel</Btn>
             <Btn variant="primary" onClick={handleCreate}>Create</Btn>
           </>
         }>
-          <label className="label" style={{ marginBottom:8 }}>Form type</label>
+          <label className="label" style={{ marginBottom:8 }}>Workflow type</label>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:16 }}>
             {[
-              { key:'inspection',  label:'Inspection',          icon:'✓', color:'#6366f1', desc:'Checklists, yes/no, ratings' },
-              { key:'statistics',  label:'Statistics Capture',  icon:'#', color:'#10b981', desc:'KPIs, manhours, incident rates' },
+              { key:'inspection', label:'Inspection',         icon:'✓', color:'#6366f1', desc:'Checklists, yes/no, ratings' },
+              { key:'statistics', label:'Statistics Capture', icon:'#', color:'#10b981', desc:'KPIs, manhours, incident rates' },
             ].map(t => (
               <button key={t.key} onClick={() => setNewType(t.key)}
-                style={{ padding:'12px', border:`2px solid ${newType===t.key ? t.color : 'var(--n-200)'}`, borderRadius:10,
-                  background: newType===t.key ? t.color + '12' : 'var(--n-0)', cursor:'pointer', textAlign:'left' }}>
-                <div style={{ fontSize:18, marginBottom:4, color: t.color }}>{t.icon}</div>
+                style={{ padding:'12px', border:`2px solid ${newType===t.key?t.color:'var(--n-200)'}`, borderRadius:10,
+                  background:newType===t.key?t.color+'12':'var(--n-0)', cursor:'pointer', textAlign:'left' }}>
+                <div style={{ fontSize:18, marginBottom:4, color:t.color }}>{t.icon}</div>
                 <div style={{ fontWeight:600, fontSize:13, color:'var(--n-800)' }}>{t.label}</div>
                 <div style={{ fontSize:11.5, color:'var(--n-500)', marginTop:3 }}>{t.desc}</div>
               </button>
             ))}
           </div>
-          <label className="label">Form name</label>
+          <label className="label">Workflow name</label>
           <input className="input" autoFocus value={newName} onChange={e => setNewName(e.target.value)}
             placeholder={newType === 'statistics' ? 'e.g. Weekly KPI Capture' : 'e.g. Daily Site Inspection'}
             onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setShowNewModal(false); }}/>
@@ -223,7 +226,7 @@ function ScreenLibrary({ onOpen, onNew }) {
 
       {/* Deactivate confirmation */}
       {confirmDeact && (
-        <Modal title="Deactivate form?" onClose={() => setConfirmDeact(null)} actions={
+        <Modal title="Deactivate workflow?" onClose={() => setConfirmDeact(null)} actions={
           <>
             <Btn onClick={() => setConfirmDeact(null)}>Cancel</Btn>
             <Btn variant="primary" style={{ background:'var(--danger)', borderColor:'var(--danger)' }} onClick={doDeactivate}>Deactivate</Btn>
@@ -242,7 +245,7 @@ function ScreenLibrary({ onOpen, onNew }) {
 
       {/* Activate confirmation */}
       {confirmActiv && (
-        <Modal title="Activate form?" onClose={() => setConfirmActiv(null)} actions={
+        <Modal title="Activate workflow?" onClose={() => setConfirmActiv(null)} actions={
           <>
             <Btn onClick={() => setConfirmActiv(null)}>Cancel</Btn>
             <Btn variant="primary" onClick={doActivate}>Activate</Btn>
