@@ -7,7 +7,6 @@ function ScreenAdmin() {
   const [newName, setNewName] = useState('');
   const [detailProjId, setDetailProjId] = useState(null); // null = list, id = detail view
   const [detailTab, setDetailTab] = useState('forms');   // 'forms' | 'schedule'
-  const [schedFormId, setSchedFormId] = useState(null);  // which assigned form to configure
 
   const selOrg = hier.find(o => o.id === selOrgId);
   const selSub = selOrg?.subsidiaries.find(s => s.id === selSubId);
@@ -129,28 +128,21 @@ function ScreenAdmin() {
           })()}
 
           {detailTab === 'schedule' && (() => {
-            const assignedForms = detailProj.forms
-              .map(a => window.FORM_LIST.find(f => f.id === a.formId))
-              .filter(Boolean);
-            const schedForm = assignedForms.find(f => f.id === schedFormId) || assignedForms[0] || null;
+            const assignedForms = (window.ORG_HIERARCHY || []).reduce((acc, org) => {
+              org.subsidiaries.forEach(sub => sub.projects.forEach(p => {
+                if (p.id === detailProjId) p.forms.forEach(a => {
+                  const f = window.FORM_LIST.find(x => x.id === a.formId);
+                  if (f) acc.push(f);
+                });
+              }));
+              return acc;
+            }, []);
             if (!assignedForms.length) return (
-              <div className="card" style={{ padding: '40px 24px', textAlign:'center', color:'var(--n-400)', fontSize:13 }}>
-                No forms assigned yet — go to the <strong>Forms</strong> tab and toggle on at least one form first.
+              <div className="card" style={{ padding:'40px 24px', textAlign:'center', color:'var(--n-400)', fontSize:13 }}>
+                No workflows assigned yet — go to the <strong>Forms</strong> tab and assign at least one workflow first.
               </div>
             );
-            return (
-              <div>
-                <div style={{ display:'flex', alignItems:'center', gap: 10, marginBottom: 16 }}>
-                  <span style={{ fontSize: 13, color:'var(--n-600)', fontWeight: 500 }}>Configure schedule for:</span>
-                  <select className="input" style={{ width: 'auto', minWidth: 260 }}
-                    value={schedForm?.id || ''}
-                    onChange={e => setSchedFormId(e.target.value)}>
-                    {assignedForms.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                  </select>
-                </div>
-                {schedForm && <ScheduleScreen form={schedForm} onBack={null} onPublish={null} embedded={true}/>}
-              </div>
-            );
+            return <StatsScheduleScreen forms={assignedForms} embedded={true} onBack={null} onPublish={null}/>;
           })()}
         </div>
       </>
