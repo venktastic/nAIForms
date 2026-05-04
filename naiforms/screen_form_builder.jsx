@@ -55,7 +55,7 @@ function FormBuilder({ form, onBack, onPublish }) {
     const target = sid || activeSection;
     if (!target) return;
     const f = {
-      id: 'f' + Date.now(), name: mf.name, source: mf.source,
+      id: 'f' + Date.now(), name: mf.name, source: mf.source, fromMaster: true,
       srcModule: mf.srcModule || '', unit: mf.unit || '', formula: mf.formula || '',
       fieldType: mf.source === 'formula' ? 'formula' : 'number', required: mf.source === 'user',
     };
@@ -363,6 +363,7 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
   const [newOpt, setNewOpt] = useState('');
   const ft = FIELD_TYPES.find(t => t.type === field.fieldType) || FIELD_TYPES[0];
   const isSystem     = field.source === 'system';
+  const isMasterRef  = !isSystem && field.source === 'user' && !!field.fromMaster;
   const isFormula    = field.fieldType === 'formula';
   const isAttachment = field.fieldType === 'attachment';
   const isDecimal    = field.numericType === 'decimal';
@@ -432,8 +433,15 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
           {/* Label */}
           <div style={{ marginTop:12, marginBottom:10 }}>
             <label className="label">Label</label>
-            <input className="input" value={field.name} placeholder="Question or field label"
-              onChange={e => onUpdate({ name: e.target.value })} autoFocus/>
+            {isMasterRef ? (
+              <div style={{ padding:'7px 10px', background:'var(--n-50)', border:'1px solid var(--n-200)', borderRadius:6, fontSize:13, color:'var(--n-700)', display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ flex:1 }}>{field.name}</span>
+                <span style={{ fontSize:11, color:'var(--n-400)' }}>Master library · read-only</span>
+              </div>
+            ) : (
+              <input className="input" value={field.name} placeholder="Question or field label"
+                onChange={e => onUpdate({ name: e.target.value })} autoFocus/>
+            )}
           </div>
 
           {/* Answer type — not for system, formula, or attachment fields */}
@@ -542,13 +550,30 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
             </div>
           )}
 
-          {/* Formula expression */}
+          {/* Formula expression + reference picker */}
           {isFormula && (
             <div style={{ marginBottom:12 }}>
               <label className="label">Formula expression</label>
-              <input className="input" style={{ fontSize:12, fontFamily:'var(--font-mono)' }} value={field.formula||''}
+              <textarea className="input" rows={2} style={{ fontSize:12, fontFamily:'var(--font-mono)', resize:'vertical', lineHeight:1.5 }}
+                value={field.formula||''}
                 placeholder="e.g. (LTI Count × 1,000,000) / Total Manhours"
                 onChange={e => onUpdate({ formula: e.target.value })}/>
+              <div style={{ marginTop:8 }}>
+                <label className="label" style={{ marginBottom:5 }}>Insert field reference</label>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:4, maxHeight:110, overflowY:'auto',
+                  padding:'6px 8px', background:'var(--n-50)', border:'1px solid var(--n-200)', borderRadius:6 }}>
+                  {(window.MASTER_FIELDS||[]).filter(m => m.source !== 'formula').map(m => (
+                    <button key={m.id}
+                      onClick={() => onUpdate({ formula: (field.formula||'').trimEnd() + (field.formula ? ' ' : '') + m.name })}
+                      style={{ padding:'2px 8px', fontSize:11, border:`1px solid ${m.source==='system'?'var(--n-300)':'var(--n-200)'}`,
+                        borderRadius:4, cursor:'pointer', whiteSpace:'nowrap',
+                        background: m.source==='system' ? 'var(--n-100)' : 'var(--n-0)',
+                        color: m.source==='system' ? 'var(--n-600)' : 'var(--n-700)' }}>
+                      {m.source==='system' ? '⚙ ' : ''}{m.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 

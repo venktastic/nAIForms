@@ -183,6 +183,7 @@ window.FORM_LIST = [
   { id:'STATSFLOW1', name:'Weekly Stats — Manhours & KPIs', type:'Statistics', sections:3, qs:11, status:'published', v:'v2.0', owner:'Ahmed Al-Rashid',  updated:'26 Apr 2026, 11:00 AM', scheduled:true  },
   { id:'STATSFLOW2', name:'Monthly TRIR / LTIFR Reporting', type:'Statistics', sections:3, qs:18, status:'published', v:'v4.1', owner:'Arun Kumar',       updated:'28 Apr 2026, 03:30 PM', scheduled:true  },
   { id:'INSPFLOW3',  name:'Crane Pre-Op Check',             type:'Inspection', sections:2, qs:9,  status:'draft',     v:'v0.1', owner:'Ahmed Khalil',     updated:'03 May 2026, 09:00 AM', scheduled:false },
+  { id:'STATSFLOW3', name:'Monthly Environmental KPIs',    type:'Statistics', sections:2, qs:6,  status:'draft',     v:'v0.1', owner:'Arun Kumar',       updated:'04 May 2026, 08:00 AM', scheduled:false },
 ];
 
 window.ORG_HIERARCHY = [
