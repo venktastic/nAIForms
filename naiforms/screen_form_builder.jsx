@@ -405,12 +405,28 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
           {ft.icon} {ft.label}{field.fieldType==='number'&&isDecimal?' (Decimal)':''}
         </span>
         {!isAttachment && <span style={{ fontSize:10, color:'var(--n-400)', flexShrink:0 }}>{isExpanded?'▲':'▼'}</span>}
-        <button className="btn ghost icon-only sm" style={{ flexShrink:0 }}
-          onClick={e => { e.stopPropagation(); onRemove(); }}>✕</button>
+        {!isSystem && (
+          <button className="btn ghost icon-only sm" style={{ flexShrink:0 }}
+            onClick={e => { e.stopPropagation(); onRemove(); }}>✕</button>
+        )}
       </div>
 
-      {/* ── INLINE INSPECTOR ── */}
-      {isExpanded && (
+      {/* ── INLINE INSPECTOR (system fields: required toggle only) ── */}
+      {isExpanded && isSystem && (
+        <div style={{ padding:'0 14px 14px', borderTop:'1px solid var(--n-100)' }}>
+          <div style={{ marginTop:10, padding:'8px 10px', background:'var(--n-100)', borderRadius:6, fontSize:12, color:'var(--n-500)' }}>
+            ⚙ Auto-populated from <strong>{field.srcModule}</strong>. Label and type cannot be edited.
+          </div>
+          <div style={{ display:'flex', alignItems:'center', paddingTop:10, marginTop:10, borderTop:'1px solid var(--n-100)' }}>
+            <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
+              <Switch on={!!field.required} onChange={v => onUpdate({ required: v })}/> Required
+            </label>
+          </div>
+        </div>
+      )}
+
+      {/* ── INLINE INSPECTOR (editable fields) ── */}
+      {isExpanded && !isSystem && (
         <div style={{ padding:'0 14px 14px', borderTop:'1px solid var(--n-100)' }}>
 
           {/* Label */}
@@ -547,11 +563,9 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
                   <span style={{ fontSize:12, color:'var(--n-500)' }}>pts</span>
                 </div>
               )}
-              {!isSystem && (
-                <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
-                  <Switch on={!!field.required} onChange={v => onUpdate({ required: v })}/> Required
-                </label>
-              )}
+              <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
+                <Switch on={!!field.required} onChange={v => onUpdate({ required: v })}/> Required
+              </label>
               {isInspection && (
                 <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
                   <Switch on={!!field.allowAttachments} onChange={v => onUpdate({ allowAttachments: v })}/> Allow attachments
