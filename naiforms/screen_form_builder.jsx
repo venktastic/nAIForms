@@ -360,13 +360,17 @@ function FormBuilder({ form, onBack, onPublish }) {
 }
 
 function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, onUpdate, onRemove, onDragStart, onDragEnd, onDragOver, onDrop, isDragging }) {
-  const [newOpt, setNewOpt] = useState('');
+  const [newOpt, setNewOpt]           = useState('');
+  const [savedToLib, setSavedToLib]   = useState(false);
+  const [labelTouched, setLabelTouched]     = useState(false);
+  const [formulaTouched, setFormulaTouched] = useState(false);
   const ft = FIELD_TYPES.find(t => t.type === field.fieldType) || FIELD_TYPES[0];
   const isSystem     = field.source === 'system';
-  const isMasterRef  = !isSystem && field.source === 'user' && !!field.fromMaster;
+  const isMasterRef  = !isSystem && !!field.fromMaster;
   const isFormula    = field.fieldType === 'formula';
   const isAttachment = field.fieldType === 'attachment';
   const isDecimal    = field.numericType === 'decimal';
+  const isLocked     = isSystem || isMasterRef;
 
   function addChoice() {
     const val = newOpt.trim() || `Option ${(field.options||[]).length + 1}`;
@@ -374,10 +378,21 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
     setNewOpt('');
   }
 
+  function saveToLibrary() {
+    if (!field.name) { setLabelTouched(true); return; }
+    const exists = (window.MASTER_FIELDS || []).some(m => m.name === field.name);
+    if (!exists) {
+      window.MASTER_FIELDS = [...(window.MASTER_FIELDS || []), {
+        id: 'u' + Date.now(), name: field.name, source: 'user', unit: field.unit || ''
+      }];
+    }
+    setSavedToLib(true);
+  }
+
   return (
     <div draggable onDragStart={onDragStart} onDragEnd={onDragEnd} onDragOver={onDragOver} onDrop={onDrop}
       style={{ opacity:isDragging?0.4:1, marginBottom:8, border:`1.5px solid ${isExpanded?'var(--brand-400)':'var(--n-200)'}`,
-        borderRadius:10, background:isSystem?'var(--n-50)':isExpanded?'#f8faff':'var(--n-0)',
+        borderRadius:10, background:isLocked?'var(--n-50)':isExpanded?'#f8faff':'var(--n-0)',
         transition:'border-color 0.12s, background 0.12s', overflow:'hidden' }}>
 
       {/* ── ROW HEADER ── */}
@@ -405,18 +420,25 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
           background:ft.color+'1a', color:ft.color, whiteSpace:'nowrap' }}>
           {ft.icon} {ft.label}{field.fieldType==='number'&&isDecimal?' (Decimal)':''}
         </span>
-        {!isAttachment && <span style={{ fontSize:10, color:'var(--n-400)', flexShrink:0 }}>{isExpanded?'▲':'▼'}</span>}
-        {!isSystem && (
-          <button className="btn ghost icon-only sm" style={{ flexShrink:0 }}
-            onClick={e => { e.stopPropagation(); onRemove(); }}>✕</button>
+        {!isLocked && !isAttachment && !field.name && (
+          <span style={{ fontSize:11, color:'var(--danger)', flexShrink:0 }}>⚠ Label missing</span>
         )}
+        {!isLocked && isFormula && !field.formula && (
+          <span style={{ fontSize:11, color:'var(--danger)', flexShrink:0 }}>⚠ Formula empty</span>
+        )}
+        {!isAttachment && <span style={{ fontSize:10, color:'var(--n-400)', flexShrink:0 }}>{isExpanded?'▲':'▼'}</span>}
+        <button className="btn ghost icon-only sm" style={{ flexShrink:0 }}
+          onClick={e => { e.stopPropagation(); onRemove(); }}>✕</button>
       </div>
 
-      {/* ── INLINE INSPECTOR (system fields: required toggle only) ── */}
-      {isExpanded && isSystem && (
+      {/* ── INLINE INSPECTOR (locked: system + master fields — required toggle only) ── */}
+      {isExpanded && isLocked && (
         <div style={{ padding:'0 14px 14px', borderTop:'1px solid var(--n-100)' }}>
           <div style={{ marginTop:10, padding:'8px 10px', background:'var(--n-100)', borderRadius:6, fontSize:12, color:'var(--n-500)' }}>
-            ⚙ Auto-populated from <strong>{field.srcModule}</strong>. Label and type cannot be edited.
+            {isSystem
+              ? <span>⚙ Auto-populated from <strong>{field.srcModule}</strong>. Cannot be edited.</span>
+              : <span>From master library. Only required / optional can be set.</span>
+            }
           </div>
           <div style={{ display:'flex', alignItems:'center', paddingTop:10, marginTop:10, borderTop:'1px solid var(--n-100)' }}>
             <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
@@ -426,21 +448,20 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
         </div>
       )}
 
-      {/* ── INLINE INSPECTOR (editable fields) ── */}
-      {isExpanded && !isSystem && (
+      {/* ── INLINE INSPECTOR (editable: new user fields + new formulas) ── */}
+      {isExpanded && !isLocked && (
         <div style={{ padding:'0 14px 14px', borderTop:'1px solid var(--n-100)' }}>
 
           {/* Label */}
           <div style={{ marginTop:12, marginBottom:10 }}>
             <label className="label">Label</label>
-            {isMasterRef ? (
-              <div style={{ padding:'7px 10px', background:'var(--n-50)', border:'1px solid var(--n-200)', borderRadius:6, fontSize:13, color:'var(--n-700)', display:'flex', alignItems:'center', gap:8 }}>
-                <span style={{ flex:1 }}>{field.name}</span>
-                <span style={{ fontSize:11, color:'var(--n-400)' }}>Master library · read-only</span>
-              </div>
-            ) : (
-              <input className="input" value={field.name} placeholder="Question or field label"
-                onChange={e => onUpdate({ name: e.target.value })} autoFocus/>
+            <input className="input" value={field.name} placeholder="Field label"
+              style={{ borderColor: labelTouched && !field.name ? 'var(--danger)' : undefined }}
+              onChange={e => onUpdate({ name: e.target.value })}
+              onBlur={() => setLabelTouched(true)}
+              autoFocus/>
+            {labelTouched && !field.name && (
+              <div style={{ fontSize:11, color:'var(--danger)', marginTop:3 }}>Label is required</div>
             )}
           </div>
 
@@ -550,14 +571,35 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
             </div>
           )}
 
-          {/* Formula expression + reference picker */}
+          {/* Formula expression + operators + reference picker */}
           {isFormula && (
             <div style={{ marginBottom:12 }}>
               <label className="label">Formula expression</label>
-              <textarea className="input" rows={2} style={{ fontSize:12, fontFamily:'var(--font-mono)', resize:'vertical', lineHeight:1.5 }}
+              <textarea className="input" rows={2}
+                style={{ fontSize:12, fontFamily:'var(--font-mono)', resize:'vertical', lineHeight:1.5,
+                  borderColor: formulaTouched && !field.formula ? 'var(--danger)' : undefined }}
                 value={field.formula||''}
                 placeholder="e.g. (LTI Count × 1,000,000) / Total Manhours"
-                onChange={e => onUpdate({ formula: e.target.value })}/>
+                onChange={e => onUpdate({ formula: e.target.value })}
+                onBlur={() => setFormulaTouched(true)}/>
+              {formulaTouched && !field.formula && (
+                <div style={{ fontSize:11, color:'var(--danger)', marginTop:3 }}>Formula expression is required</div>
+              )}
+
+              {/* Operators */}
+              <div style={{ display:'flex', gap:4, marginTop:8, flexWrap:'wrap' }}>
+                {['+', '−', '×', '÷', '(', ')', '1,000,000', '200,000'].map(op => (
+                  <button key={op}
+                    onClick={() => onUpdate({ formula: (field.formula||'').trimEnd() + (field.formula ? ' ' : '') + op })}
+                    style={{ padding:'3px 10px', fontSize:12, fontFamily: op.length > 2 ? 'inherit' : 'var(--font-mono)',
+                      fontWeight:600, border:'1px solid var(--n-300)', borderRadius:4, cursor:'pointer',
+                      background:'var(--n-0)', color:'var(--n-700)' }}>
+                    {op}
+                  </button>
+                ))}
+              </div>
+
+              {/* Reference picker */}
               <div style={{ marginTop:8 }}>
                 <label className="label" style={{ marginBottom:5 }}>Insert field reference</label>
                 <div style={{ display:'flex', flexWrap:'wrap', gap:4, maxHeight:110, overflowY:'auto',
@@ -595,6 +637,11 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
                 <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
                   <Switch on={!!field.allowAttachments} onChange={v => onUpdate({ allowAttachments: v })}/> Allow attachments
                 </label>
+              )}
+              {!isInspection && !isFormula && (
+                savedToLib
+                  ? <span style={{ fontSize:12, color:'#10b981', fontWeight:500 }}>✓ Saved to library</span>
+                  : <button className="btn sm" style={{ marginLeft:'auto' }} onClick={saveToLibrary}>+ Save to library</button>
               )}
             </div>
           )}
