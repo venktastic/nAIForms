@@ -426,6 +426,26 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
         {!isLocked && isFormula && !field.formula && (
           <span style={{ fontSize:11, color:'var(--danger)', flexShrink:0 }}>⚠ Formula empty</span>
         )}
+        {!isInspection && (() => {
+          const btnStyle = (active, activeColor, activeBg, activeBorder) => ({
+            width:28, height:28, borderRadius:6, border:'1px solid', cursor:'pointer',
+            fontSize:11, fontWeight:700, flexShrink:0,
+            display:'flex', alignItems:'center', justifyContent:'center',
+            borderColor: active ? activeBorder : 'var(--n-200)',
+            background:  active ? activeBg    : 'var(--n-0)',
+            color:       active ? activeColor  : 'var(--n-400)',
+          });
+          return (
+            <>
+              <button title="Required — must be filled before submitting"
+                style={btnStyle(!!field.required, 'var(--danger)', '#fef2f2', 'var(--danger)')}
+                onClick={e => { e.stopPropagation(); onUpdate({ required: !field.required }); }}>R</button>
+              <button title="Show on app — visible to frontline users"
+                style={btnStyle(field.showOnApp !== false, 'var(--brand-600)', 'var(--brand-50)', 'var(--brand-400)')}
+                onClick={e => { e.stopPropagation(); onUpdate({ showOnApp: field.showOnApp !== false ? false : true }); }}>A</button>
+            </>
+          );
+        })()}
         {!isAttachment && <span style={{ fontSize:10, color:'var(--n-400)', flexShrink:0 }}>{isExpanded?'▲':'▼'}</span>}
         <button className="btn ghost icon-only sm" style={{ flexShrink:0 }}
           onClick={e => { e.stopPropagation(); onRemove(); }}>✕</button>
@@ -437,14 +457,16 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
           <div style={{ marginTop:10, padding:'8px 10px', background:'var(--n-100)', borderRadius:6, fontSize:12, color:'var(--n-500)' }}>
             {isSystem
               ? <span>⚙ Auto-populated from <strong>{field.srcModule}</strong>. Cannot be edited.</span>
-              : <span>From master library. Only required / optional can be set.</span>
+              : <span>From master library. Cannot be edited.</span>
             }
           </div>
-          <div style={{ display:'flex', alignItems:'center', paddingTop:10, marginTop:10, borderTop:'1px solid var(--n-100)' }}>
-            <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
-              <Switch on={!!field.required} onChange={v => onUpdate({ required: v })}/> Required
-            </label>
-          </div>
+          {isInspection && (
+            <div style={{ display:'flex', alignItems:'center', paddingTop:10, marginTop:10, borderTop:'1px solid var(--n-100)' }}>
+              <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
+                <Switch on={!!field.required} onChange={v => onUpdate({ required: v })}/> Required
+              </label>
+            </div>
+          )}
         </div>
       )}
 
@@ -630,9 +652,11 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
                   <span style={{ fontSize:12, color:'var(--n-500)' }}>pts</span>
                 </div>
               )}
-              <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
-                <Switch on={!!field.required} onChange={v => onUpdate({ required: v })}/> Required
-              </label>
+              {isInspection && (
+                <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
+                  <Switch on={!!field.required} onChange={v => onUpdate({ required: v })}/> Required
+                </label>
+              )}
               {isInspection && (
                 <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
                   <Switch on={!!field.allowAttachments} onChange={v => onUpdate({ allowAttachments: v })}/> Allow attachments
