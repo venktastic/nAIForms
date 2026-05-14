@@ -19,7 +19,7 @@ function StatsBuilder({ form, onBack, onPublish }) {
 
   function addFieldToSection(sectionId, master) {
     if ([...usedIds].includes(master.id)) return;
-    const newField = { ...master, masterId: master.id, id: master.id + '-' + Date.now(), required: false };
+    const newField = { ...master, masterId: master.id, id: master.id + '-' + Date.now(), required: false, showOnApp: true };
     setData(d => ({ ...d, sections: d.sections.map(s => s.id !== sectionId ? s : { ...s, fields: [...s.fields, newField] })}));
   }
   function removeField(sectionId, fieldId) {
@@ -153,6 +153,13 @@ function StatsBuilder({ form, onBack, onPublish }) {
                     onClick={()=>deleteSection(s.id)}>✕</button>
                 </div>
                 <div className="section-body" style={{ padding: 14, minHeight: 48 }}>
+                  {s.fields.length > 0 && (
+                    <div style={{ display:'flex', justifyContent:'flex-end', gap:6, marginBottom:6, fontSize:11, color:'var(--n-400)' }}>
+                      <span style={{ width:28, textAlign:'center', fontWeight:700 }}>R</span>
+                      <span style={{ width:28, textAlign:'center', fontWeight:700 }}>A</span>
+                      <span style={{ width:28 }}/>
+                    </div>
+                  )}
                   {s.fields.length === 0 && (
                     <div style={{ padding: 20, textAlign:'center', color:'var(--n-400)', fontSize: 13, border:'1px dashed var(--n-300)', borderRadius: 8 }}>
                       Drag fields here, or use "+ Field" / "ƒ Formula" above
@@ -225,19 +232,52 @@ function StatsBuilder({ form, onBack, onPublish }) {
 }
 
 function StatsFieldRow({ field, onRemove, onUpdate }) {
+  const isOn = field.showOnApp !== false;
+
+  function toggle(style) {
+    return {
+      width: 28, height: 28, borderRadius: 6, border: '1px solid', cursor: 'pointer',
+      fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      ...(style === 'r' ? (field.required
+        ? { borderColor:'var(--danger)',   background:'#fef2f2', color:'var(--danger)'   }
+        : { borderColor:'var(--n-200)',    background:'var(--n-0)', color:'var(--n-400)' })
+      : (isOn
+        ? { borderColor:'var(--brand-400)', background:'var(--brand-50)', color:'var(--brand-600)' }
+        : { borderColor:'var(--n-200)',    background:'var(--n-0)', color:'var(--n-400)' })
+      )
+    };
+  }
+
   return (
-    <div style={{ display:'grid', gridTemplateColumns:'20px 1fr auto 100px 30px', gap: 12, alignItems:'center', padding: '10px 8px', border:'1px solid var(--n-200)', borderRadius: 8, marginBottom: 6, background:'var(--n-0)', cursor:'grab' }}>
-      <span style={{ color:'var(--n-400)' }}>⋮⋮</span>
-      <div>
-        <div style={{ fontWeight: 500, fontSize: 14 }}>{field.name}</div>
-        {field.source === 'formula' && field.formula && <div style={{ fontSize: 11, color:'var(--n-500)', fontFamily:'var(--font-mono)', marginTop: 2 }}>= {field.formula}</div>}
+    <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
+      border:'1px solid var(--n-200)', borderRadius:8, marginBottom:6,
+      background:'var(--n-0)', cursor:'grab' }}>
+      <span style={{ color:'var(--n-300)', fontSize:13, flexShrink:0 }}>⋮⋮</span>
+
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontWeight:500, fontSize:13.5, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          {field.source === 'system'  && <span style={{ color:'var(--n-400)', marginRight:4 }}>⚙</span>}
+          {field.source === 'formula' && <span style={{ color:'#6366f1',     marginRight:4 }}>ƒ</span>}
+          {field.name}
+        </div>
+        {field.source === 'formula' && field.formula && (
+          <div style={{ fontSize:11, color:'var(--n-500)', fontFamily:'var(--font-mono)', marginTop:2 }}>= {field.formula}</div>
+        )}
+        {field.unit && (
+          <div style={{ fontSize:11, color:'var(--n-400)', marginTop:1 }}>{field.unit}</div>
+        )}
       </div>
-      <div>{field.source === 'formula' && <Badge tone="info">ƒ Formula</Badge>}</div>
-      <label style={{ display:'flex', alignItems:'center', gap: 6, fontSize: 12 }}>
-        <Switch on={field.required} onChange={v => onUpdate({ required: v })}/>
-        Required
-      </label>
-      <button className="btn ghost icon-only sm" onClick={onRemove}>✕</button>
+
+      <button title="Required — field must be filled before submitting"
+        style={toggle('r')} onClick={() => onUpdate({ required: !field.required })}>
+        R
+      </button>
+      <button title="Show on app — visible to frontline users"
+        style={toggle('a')} onClick={() => onUpdate({ showOnApp: !isOn })}>
+        A
+      </button>
+
+      <button className="btn ghost icon-only sm" style={{ flexShrink:0 }} onClick={onRemove}>✕</button>
     </div>
   );
 }
