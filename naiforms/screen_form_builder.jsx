@@ -42,7 +42,7 @@ function FormBuilder({ form, onBack, onPublish }) {
     });
   }
   function addBlankField(sid, type, overrides) {
-    const base = { id: 'f' + Date.now(), name: '', fieldType: type, required: false, ...overrides };
+    const base = { id: 'f' + Date.now(), name: '', fieldType: type, required: true, showOnApp: true, ...overrides };
     if (type === 'single-select' || type === 'multi-choice') base.options = ['Option 1', 'Option 2'];
     if (type === 'number')     base.unit = '';
     if (type === 'text')       base.placeholder = '';
@@ -57,7 +57,7 @@ function FormBuilder({ form, onBack, onPublish }) {
     const f = {
       id: 'f' + Date.now(), name: mf.name, source: mf.source, fromMaster: true,
       srcModule: mf.srcModule || '', unit: mf.unit || '', formula: mf.formula || '',
-      fieldType: mf.source === 'formula' ? 'formula' : 'number', required: mf.source === 'user',
+      fieldType: mf.source === 'formula' ? 'formula' : 'number', required: true, showOnApp: true,
     };
     setData(d => ({ ...d, sections: d.sections.map(s => s.id !== target ? s : { ...s, fields: [...s.fields, f] }) }));
     setExpanded(f.id);
@@ -426,26 +426,20 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
         {!isLocked && isFormula && !field.formula && (
           <span style={{ fontSize:11, color:'var(--danger)', flexShrink:0 }}>⚠ Formula empty</span>
         )}
-        {!isInspection && (() => {
-          const btnStyle = (active, activeColor, activeBg, activeBorder) => ({
-            width:28, height:28, borderRadius:6, border:'1px solid', cursor:'pointer',
-            fontSize:11, fontWeight:700, flexShrink:0,
-            display:'flex', alignItems:'center', justifyContent:'center',
-            borderColor: active ? activeBorder : 'var(--n-200)',
-            background:  active ? activeBg    : 'var(--n-0)',
-            color:       active ? activeColor  : 'var(--n-400)',
-          });
-          return (
-            <>
-              <button title="Required — must be filled before submitting"
-                style={btnStyle(!!field.required, 'var(--danger)', '#fef2f2', 'var(--danger)')}
-                onClick={e => { e.stopPropagation(); onUpdate({ required: !field.required }); }}>R</button>
-              <button title="Show on app — visible to frontline users"
-                style={btnStyle(field.showOnApp !== false, 'var(--brand-600)', 'var(--brand-50)', 'var(--brand-400)')}
-                onClick={e => { e.stopPropagation(); onUpdate({ showOnApp: field.showOnApp !== false ? false : true }); }}>A</button>
-            </>
-          );
-        })()}
+        {!isInspection && (
+          <>
+            <div onClick={e => e.stopPropagation()}
+              style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'var(--n-700)', userSelect:'none', whiteSpace:'nowrap', flexShrink:0 }}>
+              Required
+              <Switch on={!!field.required} onChange={v => onUpdate({ required: v })}/>
+            </div>
+            <div onClick={e => e.stopPropagation()}
+              style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'var(--n-700)', userSelect:'none', whiteSpace:'nowrap', flexShrink:0 }}>
+              Show on app?
+              <Switch on={field.showOnApp !== false} onChange={v => onUpdate({ showOnApp: v })}/>
+            </div>
+          </>
+        )}
         {!isAttachment && <span style={{ fontSize:10, color:'var(--n-400)', flexShrink:0 }}>{isExpanded?'▲':'▼'}</span>}
         <button className="btn ghost icon-only sm" style={{ flexShrink:0 }}
           onClick={e => { e.stopPropagation(); onRemove(); }}>✕</button>
