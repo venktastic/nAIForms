@@ -1,14 +1,22 @@
 const FIELD_TYPES = [
-  { type: 'yes-no-na',     label: 'Yes / No / NA',  icon: '◉', color: '#10b981' },
-  { type: 'single-select', label: 'Single Select',   icon: '◎', color: '#6366f1' },
-  { type: 'multi-choice',  label: 'Multi Choice',    icon: '☑', color: '#8b5cf6' },
-  { type: 'number',        label: 'Number',          icon: '#',  color: '#f59e0b' },
-  { type: 'text',          label: 'Text',            icon: 'T',  color: '#0ea5e9' },
-  { type: 'formula',       label: 'Formula',         icon: 'ƒ',  color: '#ec4899' },
-  { type: 'attachment',    label: 'Attachments',     icon: '📎', color: '#64748b' },
+  { type: 'yes-no-na',     label: 'Yes / No / NA', icon: '◉',  color: '#10b981' },
+  { type: 'single-select', label: 'Single Select',  icon: '◎',  color: '#6366f1' },
+  { type: 'number',        label: 'Number',         icon: '#',  color: '#f59e0b' },
+  { type: 'text',          label: 'Short Text',     icon: 'T',  color: '#0ea5e9' },
+  { type: 'long-text',     label: 'Long Text',      icon: '¶',  color: '#0284c7' },
+  { type: 'date-time',     label: 'Date / Time',    icon: '📅', color: '#7c3aed' },
+  { type: 'photo',         label: 'Photo / Video',  icon: '📷', color: '#475569' },
+  { type: 'location',      label: 'Location',       icon: '📍', color: '#ef4444' },
+  { type: 'formula',       label: 'Formula',        icon: 'ƒ',  color: '#ec4899' },
+  { type: 'attachment',    label: 'Attachments',    icon: '📎', color: '#64748b' },
 ];
 
-const INSP_TYPES  = FIELD_TYPES.filter(t => ['yes-no-na','single-select','multi-choice','number','text'].includes(t.type));
+// Helper — normalize option to {label, weight, triggersNCR} format
+function normalizeOpt(o) {
+  return typeof o === 'string' ? { label: o, weight: 0, triggersNCR: false } : o;
+}
+
+const INSP_TYPES  = FIELD_TYPES.filter(t => ['yes-no-na','single-select','number','text','long-text','date-time','photo','location'].includes(t.type));
 const STATS_TYPES = FIELD_TYPES.filter(t => ['number','text'].includes(t.type));
 
 function FormBuilder({ form, onBack, onPublish }) {
@@ -42,10 +50,19 @@ function FormBuilder({ form, onBack, onPublish }) {
     });
   }
   function addBlankField(sid, type, overrides) {
-    const base = { id: 'f' + Date.now(), name: '', fieldType: type, required: true, showOnApp: true, ...overrides };
-    if (type === 'single-select' || type === 'multi-choice') base.options = ['Option 1', 'Option 2'];
+    const base = { id: 'f' + Date.now(), name: '', fieldType: type, required: false, showOnApp: true, ...overrides };
+    if (type === 'yes-no-na') base.options = [
+      { label: 'Yes', weight: 1.0, triggersNCR: false },
+      { label: 'No',  weight: 0.0, triggersNCR: false },
+      { label: 'NA',  weight: 0.0, triggersNCR: false },
+    ];
+    if (type === 'single-select') base.options = [
+      { label: 'Option 1', weight: 0.0, triggersNCR: false },
+      { label: 'Option 2', weight: 0.0, triggersNCR: false },
+    ];
     if (type === 'number')     base.unit = '';
     if (type === 'text')       base.placeholder = '';
+    if (type === 'long-text')  base.placeholder = '';
     if (type === 'formula')    base.formula = '';
     if (type === 'attachment') base.name = 'Attachments';
     setData(d => ({ ...d, sections: d.sections.map(s => s.id !== sid ? s : { ...s, fields: [...s.fields, base] }) }));
@@ -85,6 +102,18 @@ function FormBuilder({ form, onBack, onPublish }) {
   }
 
   const totalFields = data.sections.reduce((n, s) => n + s.fields.length, 0);
+
+  function sectionMaxScore(section) {
+    let max = 0;
+    section.fields.forEach(f => {
+      const opts = (f.options || []).map(normalizeOpt);
+      if (!opts.length) return;
+      const nonNA = opts.filter(o => o.label !== 'NA');
+      const m = Math.max(0, ...nonNA.map(o => o.weight || 0));
+      max += m;
+    });
+    return Math.round(max * 100) / 100;
+  }
   const masterFields = (window.MASTER_FIELDS || [])
     .filter(m => {
       if (masterTab === 'user')    return m.source === 'user';
@@ -94,7 +123,7 @@ function FormBuilder({ form, onBack, onPublish }) {
     .filter(m => !masterSearch || m.name.toLowerCase().includes(masterSearch.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const cols = (!isInspection && !isViewMode) ? '240px 1fr 300px' : '1fr 300px';
+  const cols = !isViewMode ? '240px 1fr 300px' : '1fr 300px';
 
   return (
     <>
@@ -108,9 +137,6 @@ function FormBuilder({ form, onBack, onPublish }) {
         ) : (
           <>
             <Btn variant="ghost" onClick={onBack}>← Library</Btn>
-            {isInspection && (
-              <Btn onClick={() => activeSection && addBlankField(activeSection, 'yes-no-na')}>+ New Field</Btn>
-            )}
             <Btn>Save draft</Btn>
             <Btn variant="primary" onClick={() => setShowPublish(true)}>Publish →</Btn>
           </>
@@ -119,62 +145,86 @@ function FormBuilder({ form, onBack, onPublish }) {
 
       <div className="builder" style={{ gridTemplateColumns: cols }}>
 
-        {/* ── LEFT PANEL (Statistics only, edit mode only) ── */}
-        {!isInspection && !isViewMode && (
+        {/* ── LEFT PANEL ── */}
+        {!isViewMode && (
           <div className="left">
-            <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', color:'var(--n-500)', letterSpacing:'0.06em', marginBottom:10 }}>
-              Master Fields
-            </div>
-
-            <div style={{ display:'flex', gap:3, marginBottom:8 }}>
-              {['all','user','formula'].map(t => (
-                <button key={t} onClick={() => setMasterTab(t)}
-                  style={{ flex:1, padding:'4px 0', fontSize:11, fontWeight:600, border:`1px solid ${masterTab===t?'var(--brand-500)':'var(--n-200)'}`,
-                    borderRadius:6, background:masterTab===t?'var(--brand-50)':'var(--n-0)',
-                    color:masterTab===t?'var(--brand-700)':'var(--n-600)', cursor:'pointer' }}>
-                  {t.charAt(0).toUpperCase()+t.slice(1)}
-                </button>
-              ))}
-            </div>
-
-            {/* Add new field / formula CTAs */}
-            {masterTab === 'user' && (
-              <button className="btn" style={{ width:'100%', marginBottom:6, fontSize:12 }}
-                onClick={() => activeSection && addBlankField(activeSection, 'number', { source:'user' })}>
-                + New Field
-              </button>
-            )}
-            {masterTab === 'formula' && (
-              <button className="btn" style={{ width:'100%', marginBottom:6, fontSize:12, color:'#ec4899', borderColor:'#ec489960' }}
-                onClick={() => activeSection && addBlankField(activeSection, 'formula', { source:'formula' })}>
-                ƒ New Formula
-              </button>
-            )}
-
-            {/* Search */}
-            <input className="input" style={{ fontSize:12, marginBottom:8, padding:'5px 8px' }}
-              placeholder="🔍 Search fields…"
-              value={masterSearch} onChange={e => setMasterSearch(e.target.value)}/>
-
-            <div style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:12, overflowY:'auto', maxHeight:'calc(100vh - 360px)' }}>
-              {masterFields.map(mf => (
-                <div key={mf.id} className="field-lib-item"
-                  draggable onDragStart={() => setDrag({ masterField: mf })} onDragEnd={() => setDrag(null)}>
-                  <div className="fi-icon" style={{ background: mf.source==='formula'?'#ec489915':'#10b98115', color: mf.source==='formula'?'#ec4899':'#10b981', fontWeight:700, fontSize:12 }}>
-                    {mf.source === 'formula' ? 'ƒ' : '#'}
-                  </div>
-                  <div className="fi-name">
-                    <div style={{ fontWeight:500, fontSize:12 }}>{mf.name}</div>
-                    <div style={{ fontSize:10.5, color:'var(--n-400)' }}>{mf.unit}</div>
-                  </div>
-                  <button className="btn sm" onClick={() => addMasterField(mf)}>+</button>
+            {isInspection ? (
+              /* ── Inspection: field type palette ── */
+              <>
+                <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', color:'var(--n-500)', letterSpacing:'0.06em', marginBottom:10 }}>
+                  Field Types
                 </div>
-              ))}
-              {masterFields.length === 0 && (
-                <div style={{ fontSize:12, color:'var(--n-300)', textAlign:'center', padding:12 }}>No fields</div>
-              )}
-            </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:5, overflowY:'auto', maxHeight:'calc(100vh - 180px)' }}>
+                  {INSP_TYPES.map(t => (
+                    <button key={t.type}
+                      onClick={() => activeSection && addBlankField(activeSection, t.type)}
+                      style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4,
+                        padding:'10px 6px', border:'1.5px solid var(--n-200)', borderRadius:8, cursor:'pointer',
+                        background:'var(--n-0)', color:'var(--n-700)', fontSize:11, fontWeight:500, lineHeight:1.3,
+                        textAlign:'center', transition:'border-color 0.1s, background 0.1s' }}
+                      onMouseOver={e => { e.currentTarget.style.borderColor = t.color; e.currentTarget.style.background = t.color + '10'; }}
+                      onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--n-200)'; e.currentTarget.style.background = 'var(--n-0)'; }}>
+                      <span style={{ fontSize:18, lineHeight:1 }}>{t.icon}</span>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              /* ── Statistics: master fields panel ── */
+              <>
+                <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', color:'var(--n-500)', letterSpacing:'0.06em', marginBottom:10 }}>
+                  Master Fields
+                </div>
 
+                <div style={{ display:'flex', gap:3, marginBottom:8 }}>
+                  {['all','user','formula'].map(t => (
+                    <button key={t} onClick={() => setMasterTab(t)}
+                      style={{ flex:1, padding:'4px 0', fontSize:11, fontWeight:600, border:`1px solid ${masterTab===t?'var(--brand-500)':'var(--n-200)'}`,
+                        borderRadius:6, background:masterTab===t?'var(--brand-50)':'var(--n-0)',
+                        color:masterTab===t?'var(--brand-700)':'var(--n-600)', cursor:'pointer' }}>
+                      {t.charAt(0).toUpperCase()+t.slice(1)}
+                    </button>
+                  ))}
+                </div>
+
+                {masterTab === 'user' && (
+                  <button className="btn" style={{ width:'100%', marginBottom:6, fontSize:12 }}
+                    onClick={() => activeSection && addBlankField(activeSection, 'number', { source:'user' })}>
+                    + New Field
+                  </button>
+                )}
+                {masterTab === 'formula' && (
+                  <button className="btn" style={{ width:'100%', marginBottom:6, fontSize:12, color:'#ec4899', borderColor:'#ec489960' }}
+                    onClick={() => activeSection && addBlankField(activeSection, 'formula', { source:'formula' })}>
+                    ƒ New Formula
+                  </button>
+                )}
+
+                <input className="input" style={{ fontSize:12, marginBottom:8, padding:'5px 8px' }}
+                  placeholder="🔍 Search fields…"
+                  value={masterSearch} onChange={e => setMasterSearch(e.target.value)}/>
+
+                <div style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:12, overflowY:'auto', maxHeight:'calc(100vh - 360px)' }}>
+                  {masterFields.map(mf => (
+                    <div key={mf.id} className="field-lib-item"
+                      draggable onDragStart={() => setDrag({ masterField: mf })} onDragEnd={() => setDrag(null)}>
+                      <div className="fi-icon" style={{ background: mf.source==='formula'?'#ec489915':'#10b98115', color: mf.source==='formula'?'#ec4899':'#10b981', fontWeight:700, fontSize:12 }}>
+                        {mf.source === 'formula' ? 'ƒ' : '#'}
+                      </div>
+                      <div className="fi-name">
+                        <div style={{ fontWeight:500, fontSize:12 }}>{mf.name}</div>
+                        <div style={{ fontSize:10.5, color:'var(--n-400)' }}>{mf.unit}</div>
+                      </div>
+                      <button className="btn sm" onClick={() => addMasterField(mf)}>+</button>
+                    </div>
+                  ))}
+                  {masterFields.length === 0 && (
+                    <div style={{ fontSize:12, color:'var(--n-300)', textAlign:'center', padding:12 }}>No fields</div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -233,6 +283,7 @@ function FormBuilder({ form, onBack, onPublish }) {
                       availableTypes={isInspection ? INSP_TYPES : STATS_TYPES}
                       isExpanded={expandedField === field.id}
                       isInspection={isInspection}
+                      questionNumber={isInspection ? fi + 1 : undefined}
                       onToggle={() => setExpanded(expandedField===field.id ? null : field.id)}
                       onUpdate={patch => updateField(section.id, field.id, patch)}
                       onRemove={() => removeField(section.id, field.id)}
@@ -249,7 +300,7 @@ function FormBuilder({ form, onBack, onPublish }) {
 
                   {section.fields.length === 0 && (
                     <div style={{ padding:16, textAlign:'center', color:'var(--n-400)', fontSize:12, border:'1px dashed var(--n-300)', borderRadius:8 }}>
-                      {isInspection ? 'Click "+ New Field" in the toolbar above' : 'Add fields from the master panel on the left'}
+                      {isInspection ? 'Click a field type in the left panel to add it here' : 'Add fields from the master panel on the left'}
                     </div>
                   )}
                 </div>
@@ -275,15 +326,34 @@ function FormBuilder({ form, onBack, onPublish }) {
           </div>
           <PhoneFrame>
             <div style={{ padding:'12px 14px' }}>
-              <div style={{ fontWeight:700, fontSize:15, marginBottom:14 }}>{data.name || 'Untitled Form'}</div>
-              {data.sections.map(s => (
-                <div key={s.id} style={{ marginBottom:16 }}>
-                  <div style={{ fontSize:11.5, fontWeight:600, color:'var(--n-600)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:8 }}>
-                    {s.title}
-                  </div>
-                  {s.fields.map(f => <FieldPreview key={f.id} field={f}/>)}
+              <div style={{ fontWeight:700, fontSize:15, marginBottom:4 }}>{data.name || 'Untitled Form'}</div>
+              {isInspection && data.sections.some(s => sectionMaxScore(s) > 0) && (
+                <div style={{ fontSize:11, color:'var(--n-500)', marginBottom:12, padding:'4px 8px', background:'var(--n-50)', borderRadius:4 }}>
+                  Overall Score: <strong>—</strong>
+                  <span style={{ marginLeft:8, color:'var(--n-400)' }}>
+                    Max: {data.sections.reduce((t, s) => t + sectionMaxScore(s), 0).toFixed(1)} pts
+                  </span>
                 </div>
-              ))}
+              )}
+              {!isInspection && <div style={{ marginBottom:14 }}/>}
+              {data.sections.map((s, si) => {
+                const maxScore = isInspection ? sectionMaxScore(s) : 0;
+                return (
+                  <div key={s.id} style={{ marginBottom:16 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                      <div style={{ fontSize:11.5, fontWeight:600, color:'var(--n-600)', textTransform:'uppercase', letterSpacing:'0.04em' }}>
+                        {s.title}
+                      </div>
+                      {isInspection && maxScore > 0 && (
+                        <div style={{ fontSize:10, color:'var(--n-400)', fontWeight:500 }}>
+                          — / {maxScore.toFixed(1)} pts
+                        </div>
+                      )}
+                    </div>
+                    {s.fields.map((f, fi) => <FieldPreview key={f.id} field={f} questionNumber={isInspection ? fi + 1 : undefined}/>)}
+                  </div>
+                );
+              })}
             </div>
           </PhoneFrame>
         </div>
@@ -359,9 +429,9 @@ function FormBuilder({ form, onBack, onPublish }) {
   );
 }
 
-function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, onUpdate, onRemove, onDragStart, onDragEnd, onDragOver, onDrop, isDragging }) {
-  const [newOpt, setNewOpt]           = useState('');
-  const [savedToLib, setSavedToLib]   = useState(false);
+function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNumber, onToggle, onUpdate, onRemove, onDragStart, onDragEnd, onDragOver, onDrop, isDragging }) {
+  const [newOpt, setNewOpt]                 = useState('');
+  const [savedToLib, setSavedToLib]         = useState(false);
   const [labelTouched, setLabelTouched]     = useState(false);
   const [formulaTouched, setFormulaTouched] = useState(false);
   const ft = FIELD_TYPES.find(t => t.type === field.fieldType) || FIELD_TYPES[0];
@@ -372,11 +442,10 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
   const isDecimal    = field.numericType === 'decimal';
   const isLocked     = isSystem || isMasterRef;
 
-  function addChoice() {
-    const val = newOpt.trim() || `Option ${(field.options||[]).length + 1}`;
-    onUpdate({ options: [...(field.options||[]), val] });
-    setNewOpt('');
-  }
+  // inspection-specific derived state
+  const opts = (field.options || []).map(normalizeOpt);
+  const hasNCR = isInspection && opts.some(o => o.triggersNCR);
+  const hasPhotoAttachment = isInspection && !!field.allowPhotoAttachment && field.fieldType !== 'photo';
 
   function saveToLibrary() {
     if (!field.name) { setLabelTouched(true); return; }
@@ -400,20 +469,25 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
         style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', cursor:isAttachment?'default':'pointer', userSelect:'none' }}>
         <span style={{ color:'var(--n-300)', cursor:'grab', fontSize:14, flexShrink:0 }}
           onMouseDown={e => e.stopPropagation()}>⋮⋮</span>
+        {isInspection && questionNumber != null && (
+          <span style={{ fontSize:11, fontWeight:700, color:'var(--n-400)', minWidth:18, textAlign:'right', flexShrink:0 }}>
+            {questionNumber}
+          </span>
+        )}
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontWeight:500, fontSize:13.5, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-            color:field.name?'var(--n-800)':'var(--n-300)', fontStyle:field.name?'normal':'italic' }}>
-            {isSystem && <span style={{ marginRight:4, color:'var(--n-400)' }}>⚙</span>}
-            {isFormula && !isSystem && <span style={{ marginRight:4, color:'#ec4899' }}>ƒ</span>}
-            {isAttachment && <span style={{ marginRight:4 }}>📎</span>}
-            {field.name || 'Untitled field'}
+            color:field.name?'var(--n-800)':'var(--n-300)', fontStyle:field.name?'normal':'italic', display:'flex', alignItems:'center', gap:4 }}>
+            {isSystem && <span style={{ color:'var(--n-400)' }}>⚙</span>}
+            {isFormula && !isSystem && <span style={{ color:'#ec4899' }}>ƒ</span>}
+            {isAttachment && <span>📎</span>}
+            <span style={{ overflow:'hidden', textOverflow:'ellipsis' }}>{field.name || 'Untitled field'}</span>
+            {hasNCR && <span style={{ fontSize:10, color:'#dc2626', fontWeight:700, flexShrink:0 }}>⚠ NCR</span>}
+            {hasPhotoAttachment && <span style={{ fontSize:12, flexShrink:0 }}>📷</span>}
           </div>
           <div style={{ display:'flex', gap:10, marginTop:2, fontSize:11, color:'var(--n-400)', flexWrap:'wrap' }}>
-            {isSystem  && <span>Auto from {field.srcModule}</span>}
+            {isSystem && <span>Auto from {field.srcModule}</span>}
             {field.unit && <span>{field.unit}</span>}
             {field.required && <span style={{ color:'var(--danger)' }}>Required</span>}
-            {isInspection && field.weightage != null && field.weightage !== 0 && <span>{field.weightage > 0 ? '+' : ''}{field.weightage} pts</span>}
-            {isInspection && field.allowAttachments && <span>📎 Attachments</span>}
           </div>
         </div>
         <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:4, flexShrink:0,
@@ -481,8 +555,17 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
             )}
           </div>
 
-          {/* Answer type — not for system, formula, or attachment fields */}
-          {!isSystem && !isFormula && !isAttachment && (
+          {/* Help text — inspection only */}
+          {isInspection && (
+            <div style={{ marginBottom:10 }}>
+              <label className="label">Help text <span style={{ fontWeight:400, color:'var(--n-400)' }}>(optional)</span></label>
+              <input className="input" value={field.helpText||''} placeholder="Guidance shown below the question…" maxLength={200}
+                onChange={e => onUpdate({ helpText: e.target.value })}/>
+            </div>
+          )}
+
+          {/* Answer type selector — not for system/formula/attachment and only in stats (inspection has fixed types) */}
+          {!isSystem && !isFormula && !isAttachment && !isInspection && (
             <div style={{ marginBottom:12 }}>
               <label className="label">Answer type</label>
               <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
@@ -494,6 +577,88 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
                     {t.icon} {t.label}
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Yes / No / NA — fixed options with weight + NCR toggle */}
+          {field.fieldType === 'yes-no-na' && isInspection && (
+            <div style={{ marginBottom:12 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                <label className="label" style={{ margin:0 }}>Options & Scoring</label>
+                <div style={{ fontSize:11, color:'var(--n-400)' }}>Weight · ⚠ Triggers NCR</div>
+              </div>
+              {opts.map((opt, oi) => (
+                <div key={opt.label} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', marginBottom:4,
+                  background: opt.triggersNCR ? '#fef2f2' : 'var(--n-50)', borderRadius:6,
+                  border: `1px solid ${opt.triggersNCR ? '#fecaca' : 'var(--n-200)'}` }}>
+                  <span style={{ fontSize:13, fontWeight:600, minWidth:28, color:'var(--n-700)' }}>{opt.label}</span>
+                  <div style={{ flex:1 }}>
+                    <input type="number" className="input" style={{ fontSize:12, width:72 }}
+                      step="0.1" value={opt.weight ?? 0}
+                      onChange={e => {
+                        const next = opts.map((o,i) => i===oi ? { ...o, weight: parseFloat(e.target.value)||0 } : o);
+                        onUpdate({ options: next });
+                      }}/>
+                  </div>
+                  <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none', whiteSpace:'nowrap' }}>
+                    <Switch on={!!opt.triggersNCR} onChange={v => {
+                      const next = opts.map((o,i) => i===oi ? { ...o, triggersNCR: v } : o);
+                      onUpdate({ options: next });
+                    }}/> ⚠
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Single Select — options with weight + NCR toggle */}
+          {field.fieldType === 'single-select' && isInspection && (
+            <div style={{ marginBottom:12 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                <label className="label" style={{ margin:0 }}>Options & Scoring</label>
+                <div style={{ fontSize:11, color:'var(--n-400)' }}>Label · Weight · ⚠</div>
+              </div>
+              {opts.map((opt, oi) => (
+                <div key={oi} style={{ display:'flex', gap:6, alignItems:'center', marginBottom:4 }}>
+                  <div style={{ width:12, height:12, borderRadius:'50%', border:'1.5px solid var(--n-300)', flexShrink:0 }}/>
+                  <input className="input" style={{ flex:1, fontSize:12 }} placeholder="Option label" value={opt.label}
+                    onChange={e => {
+                      const next = opts.map((o,i) => i===oi ? { ...o, label: e.target.value } : o);
+                      onUpdate({ options: next });
+                    }}/>
+                  <input type="number" className="input" style={{ width:64, fontSize:12 }}
+                    step="0.1" placeholder="Wt" value={opt.weight ?? 0}
+                    onChange={e => {
+                      const next = opts.map((o,i) => i===oi ? { ...o, weight: parseFloat(e.target.value)||0 } : o);
+                      onUpdate({ options: next });
+                    }}/>
+                  <label style={{ display:'flex', alignItems:'center', gap:3, fontSize:12, userSelect:'none', flexShrink:0 }}
+                    title="Triggers NCR">
+                    <Switch on={!!opt.triggersNCR} onChange={v => {
+                      const next = opts.map((o,i) => i===oi ? { ...o, triggersNCR: v } : o);
+                      onUpdate({ options: next });
+                    }}/> ⚠
+                  </label>
+                  <button className="btn ghost icon-only sm"
+                    onClick={() => onUpdate({ options: opts.filter((_,i) => i!==oi) })}>✕</button>
+                </div>
+              ))}
+              <div style={{ display:'flex', gap:6, marginTop:4 }}>
+                <input className="input" style={{ flex:1, fontSize:12 }} placeholder="New option…"
+                  value={newOpt} onChange={e => setNewOpt(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key==='Enter') {
+                      const label = newOpt.trim() || `Option ${opts.length+1}`;
+                      onUpdate({ options: [...opts, { label, weight:0.0, triggersNCR:false }] });
+                      setNewOpt('');
+                    }
+                  }}/>
+                <button className="btn sm" onClick={() => {
+                  const label = newOpt.trim() || `Option ${opts.length+1}`;
+                  onUpdate({ options: [...opts, { label, weight:0.0, triggersNCR:false }] });
+                  setNewOpt('');
+                }}>+ Add</button>
               </div>
             </div>
           )}
@@ -547,8 +712,8 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
             </div>
           )}
 
-          {/* Text config */}
-          {field.fieldType === 'text' && (
+          {/* Text / Long Text config */}
+          {(field.fieldType === 'text' || field.fieldType === 'long-text') && (
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12 }}>
               <div>
                 <label className="label">Placeholder</label>
@@ -563,26 +728,38 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
             </div>
           )}
 
-          {/* Choices — with explicit CTA */}
-          {(field.fieldType==='single-select'||field.fieldType==='multi-choice') && (
+          {/* Date/Time config */}
+          {field.fieldType === 'date-time' && (
             <div style={{ marginBottom:12 }}>
-              <label className="label">Choices</label>
-              <div style={{ display:'flex', flexDirection:'column', gap:5, marginBottom:6 }}>
-                {(field.options||[]).map((opt,oi) => (
-                  <div key={oi} style={{ display:'flex', gap:6, alignItems:'center' }}>
-                    <div style={{ width:16, height:16, borderRadius:field.fieldType==='multi-choice'?3:'50%', border:'1.5px solid var(--n-300)', flexShrink:0 }}/>
-                    <input className="input" style={{ flex:1, fontSize:12 }} value={opt}
-                      onChange={e => onUpdate({ options: field.options.map((o,i) => i===oi?e.target.value:o) })}/>
-                    <button className="btn ghost icon-only sm"
-                      onClick={() => onUpdate({ options: field.options.filter((_,i) => i!==oi) })}>✕</button>
-                  </div>
-                ))}
-              </div>
+              <label className="label">Date/time mode</label>
               <div style={{ display:'flex', gap:6 }}>
-                <input className="input" style={{ flex:1, fontSize:12 }} placeholder="Type a choice…"
-                  value={newOpt} onChange={e => setNewOpt(e.target.value)}
-                  onKeyDown={e => { if (e.key==='Enter') addChoice(); }}/>
-                <button className="btn sm" onClick={addChoice}>+ Add choice</button>
+                {[{ k:'date', l:'Date only' }, { k:'time', l:'Time only' }, { k:'datetime', l:'Date & Time' }].map(({ k, l }) => {
+                  const active = (field.dtMode || 'datetime') === k;
+                  return (
+                    <button key={k} onClick={() => onUpdate({ dtMode: k })}
+                      style={{ padding:'5px 10px', fontSize:12, border:`1.5px solid ${active?'#7c3aed':'var(--n-200)'}`,
+                        borderRadius:6, background:active?'#7c3aed18':'var(--n-0)',
+                        color:active?'#7c3aed':'var(--n-700)', fontWeight:active?600:400, cursor:'pointer' }}>
+                      {l}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Photo/Video config */}
+          {field.fieldType === 'photo' && (
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12 }}>
+              <div>
+                <label className="label">Max files</label>
+                <input type="number" className="input" style={{ fontSize:12 }} min={1} max={20}
+                  value={field.maxPhotos||5} onChange={e => onUpdate({ maxPhotos: +e.target.value })}/>
+              </div>
+              <div style={{ display:'flex', alignItems:'flex-end', paddingBottom:2 }}>
+                <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
+                  <Switch on={field.allowVideo !== false} onChange={v => onUpdate({ allowVideo: v })}/> Allow video
+                </label>
               </div>
             </div>
           )}
@@ -635,25 +812,17 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
             </div>
           )}
 
-          {/* Bottom row — weightage (inspection only), required, attachments (inspection only) */}
+          {/* Bottom row */}
           {!isAttachment && (
             <div style={{ display:'flex', gap:20, alignItems:'center', flexWrap:'wrap', paddingTop:10, borderTop:'1px solid var(--n-100)' }}>
-              {isInspection && (
-                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                  <label className="label" style={{ margin:0, whiteSpace:'nowrap' }}>Weightage</label>
-                  <input type="number" className="input" style={{ width:64, fontSize:12 }}
-                    value={field.weightage??0} onChange={e => onUpdate({ weightage: +e.target.value })}/>
-                  <span style={{ fontSize:12, color:'var(--n-500)' }}>pts</span>
-                </div>
-              )}
               {isInspection && (
                 <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
                   <Switch on={!!field.required} onChange={v => onUpdate({ required: v })}/> Required
                 </label>
               )}
-              {isInspection && (
+              {isInspection && field.fieldType !== 'photo' && (
                 <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
-                  <Switch on={!!field.allowAttachments} onChange={v => onUpdate({ allowAttachments: v })}/> Allow attachments
+                  <Switch on={!!field.allowPhotoAttachment} onChange={v => onUpdate({ allowPhotoAttachment: v })}/> 📷 Allow photo/video attachment
                 </label>
               )}
               {!isInspection && !isFormula && (
@@ -670,11 +839,12 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, onToggle, o
   );
 }
 
-function FieldPreview({ field }) {
+function FieldPreview({ field, questionNumber }) {
   const isSystem     = field.source === 'system';
   const isFormula    = field.fieldType === 'formula';
   const isAttachment = field.fieldType === 'attachment';
   const isDecimal    = field.numericType === 'decimal';
+  const opts         = (field.options || []).map(normalizeOpt);
 
   if (isAttachment) return (
     <div style={{ marginBottom:10, padding:'12px', border:'1.5px dashed var(--n-300)', borderRadius:6, textAlign:'center', fontSize:12, color:'var(--n-400)' }}>
@@ -695,31 +865,46 @@ function FieldPreview({ field }) {
   );
 
   return (
-    <div style={{ marginBottom:10 }}>
-      <div style={{ fontSize:12, color:'var(--n-700)', marginBottom:4, fontWeight:500 }}>
-        {field.name || <span style={{ color:'var(--n-300)', fontStyle:'italic' }}>Untitled field</span>}
-        {field.required && <span style={{ color:'var(--danger)', marginLeft:2 }}>*</span>}
+    <div style={{ marginBottom:12 }}>
+      {/* Question label */}
+      <div style={{ fontSize:12, color:'var(--n-700)', marginBottom:4, fontWeight:500, display:'flex', gap:6, alignItems:'baseline' }}>
+        {questionNumber != null && (
+          <span style={{ fontSize:10.5, fontWeight:600, color:'var(--n-400)', flexShrink:0 }}>Q{questionNumber}</span>
+        )}
+        <span>{field.name || <span style={{ color:'var(--n-300)', fontStyle:'italic' }}>Untitled field</span>}</span>
+        {field.required && <span style={{ color:'var(--danger)' }}>*</span>}
       </div>
-      {field.fieldType==='yes-no-na' && (
-        <div style={{ display:'flex', gap:5 }}>
-          {['Yes','No','N/A'].map(o => (
-            <div key={o} style={{ padding:'4px 10px', border:'1px solid var(--n-200)', borderRadius:6, fontSize:12, color:'var(--n-600)' }}>{o}</div>
-          ))}
-        </div>
+      {field.helpText && (
+        <div style={{ fontSize:10.5, color:'var(--n-400)', marginBottom:5, fontStyle:'italic' }}>{field.helpText}</div>
       )}
-      {(field.fieldType==='single-select'||field.fieldType==='multi-choice') && (
-        <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
-          {(field.options||['Option 1']).map((opt,i) => (
-            <div key={i} style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 8px', border:'1px solid var(--n-200)', borderRadius:6, fontSize:12, color:'var(--n-600)' }}>
-              <div style={{ width:11, height:11, borderRadius:field.fieldType==='multi-choice'?2:'50%', border:'1.5px solid var(--n-300)', flexShrink:0 }}/>
-              {opt}
+
+      {/* Primary response control */}
+      {field.fieldType === 'yes-no-na' && (
+        <div style={{ display:'flex', gap:5 }}>
+          {opts.map(o => (
+            <div key={o.label} style={{ padding:'5px 10px', border:'1px solid var(--n-200)', borderRadius:6, fontSize:12, color:'var(--n-600)',
+              display:'flex', alignItems:'center', gap:4 }}>
+              {o.label}
+              {o.triggersNCR && <span style={{ fontSize:9, color:'#dc2626', fontWeight:700 }}>⚠</span>}
             </div>
           ))}
         </div>
       )}
-      {field.fieldType==='text' && (
-        <div style={{ padding:'6px 10px', border:'1px solid var(--n-200)', borderRadius:6, fontSize:12, color:'var(--n-400)' }}>
-          {field.placeholder || 'Enter text…'}
+      {field.fieldType === 'single-select' && (
+        <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+          {(opts.length ? opts : [{ label:'Option 1', weight:0, triggersNCR:false }]).map((opt, i) => (
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 8px', border:'1px solid var(--n-200)', borderRadius:6, fontSize:12, color:'var(--n-600)' }}>
+              <div style={{ width:11, height:11, borderRadius:'50%', border:'1.5px solid var(--n-300)', flexShrink:0 }}/>
+              <span style={{ flex:1 }}>{opt.label}</span>
+              {opt.triggersNCR && <span style={{ fontSize:9, color:'#dc2626', fontWeight:700 }}>⚠</span>}
+            </div>
+          ))}
+        </div>
+      )}
+      {(field.fieldType==='text'||field.fieldType==='long-text') && (
+        <div style={{ padding:'6px 10px', border:'1px solid var(--n-200)', borderRadius:6, fontSize:12, color:'var(--n-400)',
+          minHeight: field.fieldType==='long-text' ? 52 : undefined }}>
+          {field.placeholder || (field.fieldType==='long-text' ? 'Enter long text…' : 'Enter text…')}
         </div>
       )}
       {field.fieldType==='number' && (
@@ -728,6 +913,30 @@ function FieldPreview({ field }) {
             {isDecimal ? (0).toFixed(field.decimals??2) : '0'}
           </div>
           {field.unit && <span style={{ fontSize:11, color:'var(--n-500)' }}>{field.unit}</span>}
+        </div>
+      )}
+      {field.fieldType==='date-time' && (
+        <div style={{ padding:'6px 10px', border:'1px solid var(--n-200)', borderRadius:6, fontSize:12, color:'var(--n-400)', display:'flex', gap:8, alignItems:'center' }}>
+          📅 {field.dtMode==='time' ? 'HH:MM' : field.dtMode==='date' ? 'DD/MM/YYYY' : 'DD/MM/YYYY HH:MM'}
+        </div>
+      )}
+      {field.fieldType==='photo' && (
+        <div style={{ padding:'14px 10px', border:'1.5px dashed var(--n-300)', borderRadius:6, textAlign:'center', fontSize:12, color:'var(--n-400)' }}>
+          📷 Tap to add photo{field.allowVideo!==false?' / video':''}
+          {field.maxPhotos && <span style={{ fontSize:10, display:'block', marginTop:2 }}>Max {field.maxPhotos}</span>}
+        </div>
+      )}
+      {field.fieldType==='location' && (
+        <div style={{ padding:'6px 10px', border:'1px solid var(--n-200)', borderRadius:6, fontSize:12, color:'var(--n-400)', display:'flex', gap:6, alignItems:'center' }}>
+          📍 <span style={{ fontSize:11 }}>Tap to capture GPS location</span>
+        </div>
+      )}
+
+      {/* Supplementary photo attachment (when allowPhotoAttachment = ON and not the photo type itself) */}
+      {field.allowPhotoAttachment && field.fieldType !== 'photo' && (
+        <div style={{ marginTop:6, padding:'7px 10px', border:'1.5px dashed var(--n-300)', borderRadius:6,
+          fontSize:11, color:'var(--n-400)', display:'flex', alignItems:'center', gap:6 }}>
+          📷 <span>Add photo / video (optional)</span>
         </div>
       )}
     </div>

@@ -25,7 +25,8 @@ function App() {
 
   const sidebarActive =
     (screen === 'library' || screen === 'form') ? 'library' :
-    screen === 'projects' ? 'projects' : screen;
+    screen === 'projects' ? 'projects' :
+    screen === 'observation' ? 'observation' : screen;
 
   return (
     <>
@@ -36,12 +37,13 @@ function App() {
           <Sidebar active={sidebarActive} onNav={s => {
             if (s === 'library')   setScreen('library');
             if (s === 'projects')  setScreen('projects');
-            if (s === 'dashboard') setScreen('dashboard');
-            if (s === 'users')     setScreen('users');
+            if (s === 'dashboard')    setScreen('dashboard');
+            if (s === 'users')        setScreen('users');
+            if (s === 'observation')  setScreen('observation');
           }}/>
           <div className="main">
             {!isBuilder && !hasOwnTopBar && <TopBar crumbs={
-              screen === 'library'   ? ['Masters', 'Workflows'] :
+              screen === 'library'   ? ['Masters', 'Forms'] :
               screen === 'dashboard' ? ['Main', 'Dashboard'] :
               screen === 'users'     ? ['Main', 'User Management'] :
               ['Main', screen]
@@ -53,7 +55,8 @@ function App() {
             {screen === 'form'     && <FormBuilder form={form} onBack={() => setScreen('library')} onPublish={publish}/>}
             {screen === 'projects' && <ScreenAdmin/>}
             {screen === 'dashboard'&& <Dashboard/>}
-            {screen === 'users'    && <div className="page"><div className="page-head"><h1>User Management</h1><div className="sub">Coming soon</div></div></div>}
+            {screen === 'users'       && <div className="page"><div className="page-head"><h1>User Management</h1><div className="sub">Coming soon</div></div></div>}
+            {screen === 'observation' && <ObservationWorkflow/>}
 
             {/* reserved for future use:
             {screen === 'inspection' && <InspectionBuilder .../>}

@@ -17,7 +17,7 @@ function ScreenLibrary({ onOpen, onNew }) {
   const [newType, setNewType] = useState('statistics');
   const [sortCol, setSortCol] = useState('updated');
   const [sortDir, setSortDir] = useState('desc');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('');
 
   // ── helpers ───────────────────────────────────────────────────────────────
   function getAssignedProjectIds(formId) {
@@ -167,8 +167,8 @@ function ScreenLibrary({ onOpen, onNew }) {
 
     return (
       <>
-        <TopBar crumbs={['Workflows', mf.name]} actions={
-          <Btn variant="ghost" onClick={() => { setManageFormId(null); setConfirmModal(null); }}>← Workflows</Btn>
+        <TopBar crumbs={['Forms', mf.name]} actions={
+          <Btn variant="ghost" onClick={() => { setManageFormId(null); setConfirmModal(null); }}>← Forms</Btn>
         }/>
         <div className="page">
           <div className="page-head">
@@ -280,7 +280,7 @@ function ScreenLibrary({ onOpen, onNew }) {
   // ── listing view ──────────────────────────────────────────────────────────
   const filtered = forms
     .filter(f => !q || f.name.toLowerCase().includes(q.toLowerCase()))
-    .filter(f => typeFilter === 'all' || f.type === typeFilter)
+    .filter(f => !typeFilter || f.type === typeFilter)
     .sort((a, b) => {
       const dir = sortDir === 'asc' ? 1 : -1;
       if (sortCol === 'name')    return dir * a.name.localeCompare(b.name);
@@ -307,14 +307,14 @@ function ScreenLibrary({ onOpen, onNew }) {
       {/* Header */}
       <div style={{ padding:'20px 28px 16px', borderBottom:'1px solid var(--n-100)', display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
         <div>
-          <h1 style={{ margin:0, fontSize:20, fontWeight:700 }}>Workflow Builder</h1>
+          <h1 style={{ margin:0, fontSize:20, fontWeight:700 }}>Forms</h1>
           <div style={{ fontSize:13, color:'var(--n-500)', marginTop:3 }}>Inspections and statistics captures for your organisation</div>
         </div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-          <input className="input" style={{ width:240 }} placeholder="🔍 Search workflows…"
+          <input className="input" style={{ width:240 }} placeholder="🔍 Search forms…"
             value={q} onChange={e => setQ(e.target.value)}/>
           <Btn variant="primary" onClick={() => { setNewName(''); setNewType('statistics'); setShowNewModal(true); }}>
-            + Create New Workflow
+            + Create New Form
           </Btn>
         </div>
       </div>
@@ -322,7 +322,6 @@ function ScreenLibrary({ onOpen, onNew }) {
       {/* Type filter tabs */}
       <div style={{ padding:'10px 28px 0', borderBottom:'1px solid var(--n-100)', display:'flex', gap:0 }}>
         {[
-          { key:'all',        label:'All Workflows',      count: forms.length },
           { key:'Inspection', label:'Inspection',         count: forms.filter(f=>f.type==='Inspection').length },
           { key:'Statistics', label:'Statistics Capture', count: forms.filter(f=>f.type==='Statistics').length },
         ].map(tab => (
@@ -411,7 +410,7 @@ function ScreenLibrary({ onOpen, onNew }) {
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <div style={{ padding:'48px 24px', textAlign:'center', color:'var(--n-400)', fontSize:13 }}>No workflows found</div>
+          <div style={{ padding:'48px 24px', textAlign:'center', color:'var(--n-400)', fontSize:13 }}>No forms found</div>
         )}
       </div>
 
@@ -423,9 +422,9 @@ function ScreenLibrary({ onOpen, onNew }) {
         <span><strong style={{ color:'var(--danger)' }}>{forms.filter(f=>f.status==='deactivated').length}</strong> deactivated</span>
       </div>
 
-      {/* Create new workflow modal */}
+      {/* Create new form modal */}
       {showNewModal && (
-        <Modal title="Create new workflow" onClose={() => setShowNewModal(false)} actions={
+        <Modal title="Create new form" onClose={() => setShowNewModal(false)} actions={
           <><Btn onClick={() => setShowNewModal(false)}>Cancel</Btn><Btn variant="primary" onClick={handleCreate}>Create</Btn></>
         }>
           <label className="label" style={{ marginBottom:8 }}>Workflow type</label>
