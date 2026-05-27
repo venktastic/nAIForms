@@ -29,6 +29,7 @@ function FormBuilder({ form, onBack, onPublish }) {
   const [drag, setDrag]              = useState(null);
   const [masterTab, setMasterTab]    = useState('all');
   const [masterSearch, setMasterSearch] = useState('');
+  const [showFill, setShowFill]      = useState(false);
 
   const isInspection = data.formType !== 'statistics';
   const isViewMode   = data.status === 'published';
@@ -324,6 +325,14 @@ function FormBuilder({ form, onBack, onPublish }) {
           <div style={{ fontSize:11, color:'var(--n-500)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8 }}>
             Mobile preview
           </div>
+          {isInspection && (
+            <button onClick={() => setShowFill(true)}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, width:'100%', marginBottom:10,
+                padding:'8px 12px', border:'1.5px solid var(--brand-400)', borderRadius:8,
+                background:'var(--brand-50)', color:'var(--brand-700)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+              ▶ Try filling form
+            </button>
+          )}
           <PhoneFrame>
             <div style={{ padding:'12px 14px' }}>
               <div style={{ fontWeight:700, fontSize:15, marginBottom:4 }}>{data.name || 'Untitled Form'}</div>
@@ -359,6 +368,10 @@ function FormBuilder({ form, onBack, onPublish }) {
         </div>
 
       </div>
+
+      {showFill && isInspection && (
+        <InspectionFillScreen form={data} onClose={() => setShowFill(false)}/>
+      )}
 
       {showPublish && (() => {
         const allProjects = [];
@@ -495,7 +508,7 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
           {ft.icon} {ft.label}{field.fieldType==='number'&&isDecimal?' (Decimal)':''}
         </span>
         {!isLocked && !isAttachment && !field.name && (
-          <span style={{ fontSize:11, color:'var(--danger)', flexShrink:0 }}>⚠ Label missing</span>
+          <span style={{ fontSize:11, color:'var(--danger)', flexShrink:0 }}>⚠ {isInspection ? 'Question' : 'Label'} missing</span>
         )}
         {!isLocked && isFormula && !field.formula && (
           <span style={{ fontSize:11, color:'var(--danger)', flexShrink:0 }}>⚠ Formula empty</span>
@@ -542,16 +555,16 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
       {isExpanded && !isLocked && (
         <div style={{ padding:'0 14px 14px', borderTop:'1px solid var(--n-100)' }}>
 
-          {/* Label */}
+          {/* Question / Label */}
           <div style={{ marginTop:12, marginBottom:10 }}>
-            <label className="label">Label</label>
-            <input className="input" value={field.name} placeholder="Field label"
+            <label className="label">{isInspection ? 'Question' : 'Label'}</label>
+            <input className="input" value={field.name} placeholder={isInspection ? 'Enter question…' : 'Field label'}
               style={{ borderColor: labelTouched && !field.name ? 'var(--danger)' : undefined }}
               onChange={e => onUpdate({ name: e.target.value })}
               onBlur={() => setLabelTouched(true)}
               autoFocus/>
             {labelTouched && !field.name && (
-              <div style={{ fontSize:11, color:'var(--danger)', marginTop:3 }}>Label is required</div>
+              <div style={{ fontSize:11, color:'var(--danger)', marginTop:3 }}>{isInspection ? 'Question' : 'Label'} is required</div>
             )}
           </div>
 
@@ -595,7 +608,7 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
                   <span style={{ fontSize:13, fontWeight:600, minWidth:28, color:'var(--n-700)' }}>{opt.label}</span>
                   <div style={{ flex:1 }}>
                     <input type="number" className="input" style={{ fontSize:12, width:72 }}
-                      step="0.1" value={opt.weight ?? 0}
+                      step="1" value={opt.weight ?? 0}
                       onChange={e => {
                         const next = opts.map((o,i) => i===oi ? { ...o, weight: parseFloat(e.target.value)||0 } : o);
                         onUpdate({ options: next });
@@ -628,7 +641,7 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
                       onUpdate({ options: next });
                     }}/>
                   <input type="number" className="input" style={{ width:64, fontSize:12 }}
-                    step="0.1" placeholder="Wt" value={opt.weight ?? 0}
+                    step="1" placeholder="Wt" value={opt.weight ?? 0}
                     onChange={e => {
                       const next = opts.map((o,i) => i===oi ? { ...o, weight: parseFloat(e.target.value)||0 } : o);
                       onUpdate({ options: next });
@@ -939,6 +952,464 @@ function FieldPreview({ field, questionNumber }) {
           📷 <span>Add photo / video (optional)</span>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fill-form + Score screen (Inspection only)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function scoreColor(pct) {
+  if (pct === null || pct === undefined)
+    return { bg: 'rgba(255,255,255,1)', text: '#6b7280', border: '#e5e7eb' };
+  const r = Math.round(pct);
+  if (r < 50)  return { bg: 'rgba(253,0,19,1)',   text: '#fff',    border: 'rgba(253,0,19,0.25)' };
+  if (r < 100) return { bg: 'rgba(254,182,43,1)', text: '#7c4200', border: 'rgba(254,182,43,0.4)' };
+  return             { bg: 'rgba(0,107,68,1)',     text: '#fff',    border: 'rgba(0,107,68,0.25)' };
+}
+
+function FillQuestion({ field, questionNumber, answer, onAnswer, hasError }) {
+  const opts = (field.options || []).map(normalizeOpt);
+  const isDecimal = field.numericType === 'decimal';
+
+  const cardStyle = {
+    background: '#fff', borderRadius: 14, padding: '14px 16px',
+    border: `1.5px solid ${hasError ? 'rgba(253,0,19,0.5)' : '#e9ecef'}`,
+    boxShadow: hasError ? '0 0 0 3px rgba(253,0,19,0.08)' : '0 1px 3px rgba(0,0,0,0.06)',
+  };
+
+  return (
+    <div style={cardStyle}>
+      <div style={{ fontSize: 13.5, fontWeight: 600, color: '#111', marginBottom: field.helpText ? 4 : 10, display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', flexShrink: 0 }}>Q{questionNumber}</span>
+        <span style={{ flex: 1 }}>{field.name || <span style={{ color: '#d1d5db', fontStyle: 'italic' }}>Untitled question</span>}</span>
+        {field.required && <span style={{ color: 'rgba(253,0,19,1)', fontSize: 14, flexShrink: 0 }}>*</span>}
+      </div>
+      {field.helpText && (
+        <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 10, fontStyle: 'italic', lineHeight: 1.4 }}>{field.helpText}</div>
+      )}
+      {hasError && (
+        <div style={{ fontSize: 11.5, color: 'rgba(253,0,19,1)', marginBottom: 8, fontWeight: 500 }}>This question is required</div>
+      )}
+
+      {field.fieldType === 'yes-no-na' && (
+        <div style={{ display: 'flex', gap: 8 }}>
+          {opts.map(opt => {
+            const sel = answer === opt.label;
+            const c = opt.label === 'Yes' ? 'rgba(0,107,68,1)' : opt.label === 'No' ? 'rgba(253,0,19,1)' : '#6b7280';
+            return (
+              <button key={opt.label} onClick={() => onAnswer(sel ? null : opt.label)}
+                style={{ flex: 1, padding: '11px 6px', border: `2px solid ${sel ? c : '#e5e7eb'}`,
+                  borderRadius: 12, background: sel ? c : '#f9fafb',
+                  color: sel ? '#fff' : '#374151',
+                  fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                  transition: 'all 0.12s' }}>
+                {opt.label}
+                {opt.triggersNCR && <span style={{ fontSize: 9, opacity: 0.85 }}>⚠</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {field.fieldType === 'single-select' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {opts.map((opt, i) => {
+            const sel = answer === opt.label;
+            return (
+              <button key={i} onClick={() => onAnswer(sel ? null : opt.label)}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px',
+                  border: `1.5px solid ${sel ? '#111' : '#e5e7eb'}`,
+                  borderRadius: 11, background: sel ? '#f8f9fa' : '#fafafa', cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${sel ? '#111' : '#d1d5db'}`,
+                  background: sel ? '#111' : 'transparent', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {sel && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }}/>}
+                </div>
+                <span style={{ fontSize: 13.5, color: '#111', fontWeight: sel ? 600 : 400, flex: 1 }}>{opt.label}</span>
+                {opt.triggersNCR && <span style={{ fontSize: 10, color: 'rgba(253,0,19,1)', fontWeight: 700 }}>⚠ NCR</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {field.fieldType === 'text' && (
+        <input className="input" style={{ fontSize: 13, borderRadius: 10 }}
+          value={answer || ''} placeholder={field.placeholder || 'Enter answer…'}
+          onChange={e => onAnswer(e.target.value || null)}/>
+      )}
+
+      {field.fieldType === 'long-text' && (
+        <textarea className="input" rows={3}
+          style={{ fontSize: 13, borderRadius: 10, resize: 'none' }}
+          value={answer || ''} placeholder={field.placeholder || 'Enter details…'}
+          onChange={e => onAnswer(e.target.value || null)}/>
+      )}
+
+      {field.fieldType === 'number' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <input type="number" className="input" style={{ fontSize: 13, borderRadius: 10, flex: 1 }}
+            value={answer || ''} placeholder="0"
+            step={isDecimal ? 'any' : '1'}
+            min={field.min != null ? field.min : undefined}
+            max={field.max != null ? field.max : undefined}
+            onChange={e => onAnswer(e.target.value || null)}/>
+          {field.unit && <span style={{ fontSize: 13, color: '#6b7280', fontWeight: 500, flexShrink: 0 }}>{field.unit}</span>}
+        </div>
+      )}
+
+      {field.fieldType === 'date-time' && (
+        <input type={field.dtMode === 'time' ? 'time' : field.dtMode === 'date' ? 'date' : 'datetime-local'}
+          className="input" style={{ fontSize: 13, borderRadius: 10 }}
+          value={answer || ''}
+          onChange={e => onAnswer(e.target.value || null)}/>
+      )}
+
+      {field.fieldType === 'photo' && (
+        <button onClick={() => onAnswer(answer ? null : 'captured')}
+          style={{ width: '100%', padding: '20px 12px', border: `1.5px dashed ${answer ? 'rgba(0,107,68,1)' : '#d1d5db'}`,
+            borderRadius: 12, background: answer ? 'rgba(0,107,68,0.05)' : '#fafafa', cursor: 'pointer',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 26 }}>{answer ? '✓' : '📷'}</span>
+          <span style={{ fontSize: 12, color: answer ? 'rgba(0,107,68,1)' : '#6b7280', fontWeight: 500 }}>
+            {answer ? 'Photo captured — tap to remove' : `Tap to add photo${field.allowVideo !== false ? ' / video' : ''}`}
+          </span>
+          {!answer && field.maxPhotos && <span style={{ fontSize: 11, color: '#9ca3af' }}>Max {field.maxPhotos} files</span>}
+        </button>
+      )}
+
+      {field.fieldType === 'location' && (
+        <button onClick={() => onAnswer(answer ? null : '25.2854° N, 51.5310° E')}
+          style={{ width: '100%', padding: '13px', border: `1.5px solid ${answer ? 'rgba(0,107,68,1)' : '#e5e7eb'}`,
+            borderRadius: 11, background: answer ? 'rgba(0,107,68,0.05)' : '#fafafa', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+          <span style={{ fontSize: 16 }}>📍</span>
+          <span style={{ fontSize: 13, color: answer ? 'rgba(0,107,68,1)' : '#374151', fontWeight: 500 }}>
+            {answer ? answer : 'Tap to capture location'}
+          </span>
+        </button>
+      )}
+
+      {field.allowPhotoAttachment && field.fieldType !== 'photo' && (
+        <div style={{ marginTop: 10, padding: '8px 12px', border: '1px dashed #d1d5db', borderRadius: 10,
+          fontSize: 12, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 6 }}>
+          📷 <span>Add photo / video (optional)</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InspectionFillScreen({ form, onClose }) {
+  const [sectionIdx, setSectionIdx] = useState(0);
+  const [answers, setAnswers]       = useState({});
+  const [errors, setErrors]         = useState({});
+  const [submitted, setSubmitted]   = useState(false);
+
+  const sections = (form.sections || []).filter(s => s.fields.length > 0);
+
+  function setAnswer(fid, val) {
+    setAnswers(a => ({ ...a, [fid]: val }));
+    if (errors[fid]) setErrors(e => { const n = { ...e }; delete n[fid]; return n; });
+  }
+
+  function validate(sec) {
+    const errs = {};
+    (sec.fields || []).forEach(f => {
+      if (!f.required) return;
+      const v = answers[f.id];
+      if (v === undefined || v === null || v === '') errs[f.id] = true;
+    });
+    return errs;
+  }
+
+  function goNext() {
+    const errs = validate(sections[sectionIdx]);
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+    setErrors({});
+    setSectionIdx(i => i + 1);
+    window.scrollTo && window.scrollTo(0, 0);
+  }
+
+  function goBack() {
+    setErrors({});
+    setSectionIdx(i => i - 1);
+  }
+
+  function submit() {
+    const errs = validate(sections[sectionIdx]);
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+    setSubmitted(true);
+  }
+
+  function calcScore(fields) {
+    let result = 0, total = 0, hasWeighted = false;
+    fields.forEach(f => {
+      const opts = (f.options || []).map(normalizeOpt);
+      const nonNA = opts.filter(o => o.label !== 'NA');
+      const maxW = nonNA.length ? Math.max(0, ...nonNA.map(o => o.weight || 0)) : 0;
+      if (maxW <= 0) return;
+      const ans = answers[f.id];
+      if (ans === 'NA') return;
+      hasWeighted = true;
+      total += maxW;
+      if (ans) { const chosen = opts.find(o => o.label === ans); if (chosen) result += chosen.weight || 0; }
+    });
+    if (!hasWeighted || total === 0) return null;
+    return Math.min(100, (result / total) * 100);
+  }
+
+  function calcOverall() {
+    let result = 0, total = 0, has = false;
+    sections.forEach(s => s.fields.forEach(f => {
+      const opts = (f.options || []).map(normalizeOpt);
+      const nonNA = opts.filter(o => o.label !== 'NA');
+      const maxW = nonNA.length ? Math.max(0, ...nonNA.map(o => o.weight || 0)) : 0;
+      if (maxW <= 0) return;
+      const ans = answers[f.id];
+      if (ans === 'NA') return;
+      has = true; total += maxW;
+      if (ans) { const chosen = opts.find(o => o.label === ans); if (chosen) result += chosen.weight || 0; }
+    }));
+    if (!has || total === 0) return null;
+    return Math.min(100, (result / total) * 100);
+  }
+
+  const phoneShell = {
+    width: 390, height: 750, background: '#f5f5f7', borderRadius: 50, overflow: 'hidden',
+    boxShadow: '0 0 0 10px #1c1c1e, 0 0 0 12px #3a3a3c, 0 32px 64px rgba(0,0,0,0.55)',
+    display: 'flex', flexDirection: 'column', position: 'relative',
+  };
+
+  if (submitted) {
+    return (
+      <ScoreScreen
+        form={form} sections={sections}
+        sectionScores={sections.map(s => calcScore(s.fields))}
+        overallScore={calcOverall()}
+        onClose={onClose}
+      />
+    );
+  }
+
+  if (!sections.length) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,23,42,0.72)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+        <div style={{ background: '#fff', borderRadius: 20, padding: '32px 28px', textAlign: 'center', maxWidth: 320 }}
+          onClick={e => e.stopPropagation()}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>📋</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 6 }}>No questions yet</div>
+          <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>Add some fields to the form sections first.</div>
+          <button className="btn primary" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    );
+  }
+
+  const section = sections[sectionIdx];
+  const isFirst = sectionIdx === 0;
+  const isLast  = sectionIdx === sections.length - 1;
+  const errorCount = Object.keys(errors).length;
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,23,42,0.72)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={onClose}>
+      <div style={phoneShell} onClick={e => e.stopPropagation()}>
+
+        {/* Status bar */}
+        <div style={{ background: '#fff', padding: '14px 28px 6px', display: 'flex', justifyContent: 'space-between',
+          fontSize: 12, fontWeight: 600, color: '#111', flexShrink: 0, position: 'relative' }}>
+          <span>9:41</span>
+          <div style={{ width: 88, height: 22, background: '#000', borderRadius: 14,
+            position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: 10 }}/>
+          <span style={{ fontSize: 11 }}>●●● 87%</span>
+        </div>
+
+        {/* App header */}
+        <div style={{ background: '#fff', padding: '8px 18px 14px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <button style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#374151', padding: '0 4px', lineHeight: 1 }}
+              onClick={onClose}>‹</button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 15.5, fontWeight: 700, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {form.name || 'Inspection'}
+              </div>
+              <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 1 }}>
+                Section {sectionIdx + 1} of {sections.length}
+              </div>
+            </div>
+          </div>
+          {/* Progress bar */}
+          <div style={{ height: 5, background: '#f0f0f0', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${((sectionIdx + 1) / sections.length) * 100}%`,
+              background: 'rgba(0,107,68,1)', borderRadius: 4, transition: 'width 0.3s ease' }}/>
+          </div>
+        </div>
+
+        {/* Section label */}
+        <div style={{ background: '#fff', padding: '12px 18px 10px', borderBottom: '1px solid #f5f5f7', flexShrink: 0 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: '#111' }}>{section.title}</div>
+          <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
+            {section.fields.length} question{section.fields.length !== 1 ? 's' : ''}
+          </div>
+        </div>
+
+        {/* Questions — scrollable */}
+        <div style={{ flex: 1, overflow: 'auto', padding: '14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {section.fields.map((f, fi) => (
+            <FillQuestion key={f.id} field={f} questionNumber={fi + 1}
+              answer={answers[f.id]} onAnswer={v => setAnswer(f.id, v)} hasError={!!errors[f.id]}/>
+          ))}
+          <div style={{ height: 4 }}/>
+        </div>
+
+        {/* Bottom CTA */}
+        <div style={{ background: '#fff', borderTop: '1px solid #f0f0f0', padding: '12px 18px 28px', flexShrink: 0 }}>
+          {errorCount > 0 && (
+            <div style={{ fontSize: 12, color: 'rgba(253,0,19,1)', marginBottom: 8, textAlign: 'center', fontWeight: 500 }}>
+              {errorCount} required question{errorCount !== 1 ? 's' : ''} need{errorCount === 1 ? 's' : ''} an answer
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 10 }}>
+            {!isFirst && (
+              <button onClick={goBack}
+                style={{ flex: 1, padding: '13px', border: '1.5px solid #e5e7eb', borderRadius: 12,
+                  background: '#fff', color: '#374151', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                ← Back
+              </button>
+            )}
+            <button onClick={isLast ? submit : goNext}
+              style={{ flex: isFirst ? 1 : 2, padding: '13px', border: 'none', borderRadius: 12,
+                background: isLast ? 'rgba(0,107,68,1)' : '#111',
+                color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+              {isLast ? '✓ Submit' : 'Next →'}
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+function ScoreScreen({ form, sections, sectionScores, overallScore, onClose }) {
+  const oC = scoreColor(overallScore);
+  const pctLabel = p => p === null ? 'N/A' : Math.round(p) + '%';
+  const verdict = p => {
+    if (p === null) return 'Not Scored';
+    if (p === 100)  return 'Excellent';
+    if (p >= 75)    return 'Acceptable';
+    if (p >= 50)    return 'Needs Improvement';
+    return 'Critical';
+  };
+
+  const phoneShell = {
+    width: 390, height: 750, background: '#f5f5f7', borderRadius: 50, overflow: 'hidden',
+    boxShadow: '0 0 0 10px #1c1c1e, 0 0 0 12px #3a3a3c, 0 32px 64px rgba(0,0,0,0.55)',
+    display: 'flex', flexDirection: 'column',
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,23,42,0.72)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={onClose}>
+      <div style={phoneShell} onClick={e => e.stopPropagation()}>
+
+        {/* Status bar */}
+        <div style={{ background: '#fff', padding: '14px 28px 6px', display: 'flex', justifyContent: 'space-between',
+          fontSize: 12, fontWeight: 600, color: '#111', flexShrink: 0, position: 'relative' }}>
+          <span>9:41</span>
+          <div style={{ width: 88, height: 22, background: '#000', borderRadius: 14,
+            position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: 10 }}/>
+          <span style={{ fontSize: 11 }}>●●● 87%</span>
+        </div>
+
+        {/* Header */}
+        <div style={{ background: '#fff', padding: '10px 18px 16px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#111' }}>Inspection Results</div>
+          <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{form.name}</div>
+        </div>
+
+        {/* Overall score hero */}
+        <div style={{ padding: '22px 20px 18px', background: '#fff', borderBottom: '1px solid #f5f5f7', flexShrink: 0 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', color: '#9ca3af', marginBottom: 14 }}>
+            OVERALL SCORE
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+            <div style={{
+              width: 90, height: 90, borderRadius: '50%',
+              background: oC.bg, border: `3px solid ${oC.border}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              boxShadow: overallScore !== null ? `0 6px 20px ${oC.bg}70` : '0 2px 8px rgba(0,0,0,0.07)',
+            }}>
+              <span style={{ fontSize: overallScore !== null ? 22 : 14, fontWeight: 800, color: oC.text, lineHeight: 1 }}>
+                {pctLabel(overallScore)}
+              </span>
+            </div>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: '#111', lineHeight: 1.1 }}>
+                {verdict(overallScore)}
+              </div>
+              <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 6 }}>
+                {sections.length} section{sections.length !== 1 ? 's' : ''} completed
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section scores */}
+        <div style={{ flex: 1, overflow: 'auto', padding: '16px 14px' }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', color: '#9ca3af', marginBottom: 10 }}>
+            SECTION SCORES
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {sections.map((sec, i) => {
+              const pct = sectionScores[i];
+              const c = scoreColor(pct);
+              return (
+                <div key={sec.id} style={{ background: '#fff', borderRadius: 14, padding: '14px 16px',
+                  border: '1px solid #e9ecef', display: 'flex', alignItems: 'center', gap: 14,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                  <div style={{
+                    width: 56, height: 56, borderRadius: 14, background: c.bg,
+                    border: `2px solid ${c.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                    boxShadow: pct !== null ? `0 3px 10px ${c.bg}55` : '0 1px 4px rgba(0,0,0,0.06)',
+                  }}>
+                    <span style={{ fontSize: pct !== null ? 13 : 11, fontWeight: 800, color: c.text }}>
+                      {pctLabel(pct)}
+                    </span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sec.title}</div>
+                    <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>
+                      {sec.fields.length} question{sec.fields.length !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 16, flexShrink: 0 }}>
+                    {pct === null ? '—' : pct === 100 ? '✓' : pct >= 50 ? '~' : '✕'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Close button */}
+        <div style={{ background: '#fff', borderTop: '1px solid #f0f0f0', padding: '14px 18px 30px', flexShrink: 0 }}>
+          <button onClick={onClose}
+            style={{ width: '100%', padding: '14px', border: 'none', borderRadius: 13,
+              background: '#111', color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
+            Close
+          </button>
+        </div>
+
+      </div>
     </div>
   );
 }
