@@ -1127,12 +1127,28 @@ function InspectionFillScreen({ form, onClose }) {
   const [answers, setAnswers]       = useState({});
   const [errors, setErrors]         = useState({});
   const [submitted, setSubmitted]   = useState(false);
+  const [bulkScope, setBulkScope]   = useState('section');
 
   const sections = (form.sections || []).filter(s => s.fields.length > 0);
 
   function setAnswer(fid, val) {
     setAnswers(a => ({ ...a, [fid]: val }));
     if (errors[fid]) setErrors(e => { const n = { ...e }; delete n[fid]; return n; });
+  }
+
+  function bulkApply(value, fieldType) {
+    const targetSections = bulkScope === 'form' ? sections : [sections[sectionIdx]];
+    const updates = {};
+    targetSections.forEach(sec => sec.fields.forEach(f => {
+      if (f.fieldType !== fieldType) return;
+      if (fieldType === 'single-select') {
+        const opts = (f.options || []).map(normalizeOpt);
+        if (!opts.some(o => o.label === value)) return;
+      }
+      updates[f.id] = value;
+    }));
+    setAnswers(a => ({ ...a, ...updates }));
+    setErrors(e => { const n = { ...e }; Object.keys(updates).forEach(k => delete n[k]); return n; });
   }
 
   function validate(sec) {
@@ -1234,6 +1250,13 @@ function InspectionFillScreen({ form, onClose }) {
   const isLast  = sectionIdx === sections.length - 1;
   const errorCount = Object.keys(errors).length;
 
+  // Bulk bar: derive what to show based on current scope
+  const scopedSections = bulkScope === 'form' ? sections : [section];
+  const hasYesNoNA     = scopedSections.some(s => s.fields.some(f => f.fieldType === 'yes-no-na'));
+  const ssFields       = scopedSections.flatMap(s => s.fields.filter(f => f.fieldType === 'single-select'));
+  const ssOpts         = ssFields.length > 0 ? (ssFields[0].options || []).map(normalizeOpt) : [];
+  const showBulkBar    = hasYesNoNA || ssOpts.length > 0;
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,23,42,0.72)',
       display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -1277,6 +1300,51 @@ function InspectionFillScreen({ form, onClose }) {
             {section.fields.length} question{section.fields.length !== 1 ? 's' : ''}
           </div>
         </div>
+
+        {/* Bulk fill bar */}
+        {showBulkBar && (
+          <div style={{ background: '#fff', padding: '10px 16px 8px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', flexShrink: 0 }}>Fill all</span>
+              <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: 8, padding: 2, gap: 2 }}>
+                {[['section','Section'],['form','Entire form']].map(([val, lbl]) => (
+                  <button key={val} onClick={() => setBulkScope(val)}
+                    style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none',
+                      background: bulkScope === val ? '#fff' : 'transparent',
+                      color: bulkScope === val ? '#111' : '#9ca3af', cursor: 'pointer',
+                      boxShadow: bulkScope === val ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {hasYesNoNA && (
+              <div style={{ display: 'flex', gap: 6, marginBottom: ssOpts.length > 0 ? 6 : 0 }}>
+                {[{l:'Yes',i:'✓',c:'#16a34a',bg:'#f0fdf4'},{l:'No',i:'✗',c:'#dc2626',bg:'#fef2f2'},{l:'NA',i:'NA',c:'#d97706',bg:'#fffbeb'}].map(opt => (
+                  <button key={opt.l} onClick={() => bulkApply(opt.l, 'yes-no-na')}
+                    style={{ flex: 1, padding: '7px 4px', border: `1.5px solid ${opt.c}35`,
+                      borderRadius: 10, background: opt.bg, color: opt.c,
+                      fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
+                    {opt.i}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {ssOpts.length > 0 && (
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                {ssOpts.map(opt => (
+                  <button key={opt.label} onClick={() => bulkApply(opt.label, 'single-select')}
+                    style={{ padding: '4px 11px', border: '1.5px solid #e5e7eb', borderRadius: 20,
+                      background: '#f9fafb', color: '#374151', fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Questions — scrollable */}
         <div style={{ flex: 1, overflow: 'auto', padding: '14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
