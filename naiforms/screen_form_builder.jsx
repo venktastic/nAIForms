@@ -461,8 +461,9 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
 
   // inspection-specific derived state
   const opts = (field.options || []).map(normalizeOpt);
-  const hasNCR = isInspection && opts.some(o => o.triggersNCR);
+  const hasNCR             = isInspection && opts.some(o => o.triggersNCR);
   const hasPhotoAttachment = isInspection && !!field.allowPhotoAttachment && field.fieldType !== 'photo';
+  const hasComment         = isInspection && !!field.allowComment;
 
   function saveToLibrary() {
     if (!field.name) { setLabelTouched(true); return; }
@@ -500,6 +501,7 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
             <span style={{ overflow:'hidden', textOverflow:'ellipsis' }}>{field.name || 'Untitled field'}</span>
             {hasNCR && <span style={{ fontSize:10, color:'#dc2626', fontWeight:700, flexShrink:0 }}>⚠ NCR</span>}
             {hasPhotoAttachment && <span style={{ fontSize:12, flexShrink:0 }}>📷</span>}
+            {hasComment && <span style={{ fontSize:12, flexShrink:0 }}>💬</span>}
           </div>
           <div style={{ display:'flex', gap:10, marginTop:2, fontSize:11, color:'var(--n-400)', flexWrap:'wrap' }}>
             {isSystem && <span>Auto from {field.srcModule}</span>}
@@ -850,6 +852,11 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
                   <Switch on={!!field.allowPhotoAttachment} onChange={v => onUpdate({ allowPhotoAttachment: v })}/> 📷 Allow photo/video attachment
                 </label>
               )}
+              {isInspection && (
+                <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
+                  <Switch on={!!field.allowComment} onChange={v => onUpdate({ allowComment: v })}/> 💬 Allow comment
+                </label>
+              )}
               {!isInspection && !isFormula && (
                 savedToLib
                   ? <span style={{ fontSize:12, color:'#10b981', fontWeight:500 }}>✓ Saved to library</span>
@@ -969,6 +976,12 @@ function FieldPreview({ field, questionNumber }) {
           📷 <span>Add photo / video (optional)</span>
         </div>
       )}
+      {field.allowComment && (
+        <div style={{ marginTop:6, padding:'6px 10px', border:'1px solid var(--n-200)', borderRadius:6,
+          fontSize:11, color:'var(--n-400)', display:'flex', alignItems:'center', gap:6 }}>
+          💬 <span>Add comment (optional)</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -986,7 +999,7 @@ function scoreColor(pct) {
   return             { bg: 'rgba(0,107,68,1)',     text: '#fff',    border: 'rgba(0,107,68,0.25)' };
 }
 
-function FillQuestion({ field, questionNumber, answer, onAnswer, hasError }) {
+function FillQuestion({ field, questionNumber, answer, onAnswer, hasError, comment, onComment }) {
   const opts = (field.options || []).map(normalizeOpt);
   const isDecimal = field.numericType === 'decimal';
 
@@ -1116,6 +1129,15 @@ function FillQuestion({ field, questionNumber, answer, onAnswer, hasError }) {
         <div style={{ marginTop: 10, padding: '8px 12px', border: '1px dashed #d1d5db', borderRadius: 10,
           fontSize: 12, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 6 }}>
           📷 <span>Add photo / video (optional)</span>
+        </div>
+      )}
+      {field.allowComment && (
+        <div style={{ marginTop: 10 }}>
+          <textarea className="input" rows={2}
+            style={{ fontSize: 12, borderRadius: 10, resize: 'none', padding: '8px 12px' }}
+            value={comment || ''}
+            placeholder="💬 Add a comment (optional)…"
+            onChange={e => onComment(e.target.value || null)}/>
         </div>
       )}
     </div>
@@ -1379,7 +1401,8 @@ function InspectionFillScreen({ form, onClose }) {
         <div style={{ flex: 1, overflow: 'auto', padding: '14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           {section.fields.map((f, fi) => (
             <FillQuestion key={f.id} field={f} questionNumber={fi + 1}
-              answer={answers[f.id]} onAnswer={v => setAnswer(f.id, v)} hasError={!!errors[f.id]}/>
+              answer={answers[f.id]} onAnswer={v => setAnswer(f.id, v)} hasError={!!errors[f.id]}
+              comment={answers[f.id + '_comment']} onComment={v => setAnswer(f.id + '_comment', v)}/>
           ))}
           <div style={{ height: 4 }}/>
         </div>
