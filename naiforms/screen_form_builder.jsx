@@ -1136,8 +1136,8 @@ function InspectionFillScreen({ form, onClose }) {
     if (errors[fid]) setErrors(e => { const n = { ...e }; delete n[fid]; return n; });
   }
 
-  function bulkApply(value, fieldType) {
-    const targetSections = bulkScope === 'form' ? sections : [sections[sectionIdx]];
+  function bulkApply(value, fieldType, scope) {
+    const targetSections = scope === 'form' ? sections : [sections[sectionIdx]];
     const updates = {};
     targetSections.forEach(sec => sec.fields.forEach(f => {
       if (f.fieldType !== fieldType) return;
@@ -1250,12 +1250,30 @@ function InspectionFillScreen({ form, onClose }) {
   const isLast  = sectionIdx === sections.length - 1;
   const errorCount = Object.keys(errors).length;
 
-  // Bulk bar: derive what to show based on current scope
-  const scopedSections = bulkScope === 'form' ? sections : [section];
-  const hasYesNoNA     = scopedSections.some(s => s.fields.some(f => f.fieldType === 'yes-no-na'));
-  const ssFields       = scopedSections.flatMap(s => s.fields.filter(f => f.fieldType === 'single-select'));
-  const ssOpts         = ssFields.length > 0 ? (ssFields[0].options || []).map(normalizeOpt) : [];
-  const showBulkBar    = hasYesNoNA || ssOpts.length > 0;
+  // Bulk bar: uniform-options check — returns opts array if all fields of type share identical options, else null
+  function uniformOpts(fields, type) {
+    const matching = fields.filter(f => f.fieldType === type);
+    if (!matching.length) return null;
+    const ref = (matching[0].options || []).map(normalizeOpt).map(o => o.label).join('|');
+    for (const f of matching.slice(1)) {
+      if ((f.options || []).map(normalizeOpt).map(o => o.label).join('|') !== ref) return null;
+    }
+    return (matching[0].options || []).map(normalizeOpt);
+  }
+
+  const allFormFields = sections.flatMap(s => s.fields);
+  const secYNN  = uniformOpts(section.fields, 'yes-no-na');
+  const secSS   = uniformOpts(section.fields, 'single-select');
+  const secOK   = !!(secYNN || secSS);
+  const frmYNN  = uniformOpts(allFormFields, 'yes-no-na');
+  const frmSS   = uniformOpts(allFormFields, 'single-select');
+  const frmOK   = !!(frmYNN || frmSS);
+  const showBulkBar = secOK || frmOK;
+
+  // Auto-correct scope if the currently selected scope became ineligible
+  const effectiveScope = (bulkScope === 'form' && frmOK) ? 'form' : (secOK ? 'section' : 'form');
+  const activeYNN = effectiveScope === 'form' ? frmYNN : secYNN;
+  const activeSS  = effectiveScope === 'form' ? frmSS  : secSS;
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,23,42,0.72)',
@@ -1304,25 +1322,34 @@ function InspectionFillScreen({ form, onClose }) {
         {/* Bulk fill bar */}
         {showBulkBar && (
           <div style={{ background: '#fff', padding: '10px 16px 8px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
+
+            {/* Scope tabs — only show eligible scopes */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', flexShrink: 0 }}>Fill all</span>
-              <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: 8, padding: 2, gap: 2 }}>
-                {[['section','Section'],['form','Entire form']].map(([val, lbl]) => (
-                  <button key={val} onClick={() => setBulkScope(val)}
-                    style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none',
-                      background: bulkScope === val ? '#fff' : 'transparent',
-                      color: bulkScope === val ? '#111' : '#9ca3af', cursor: 'pointer',
-                      boxShadow: bulkScope === val ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}>
-                    {lbl}
-                  </button>
-                ))}
-              </div>
+              {secOK && frmOK ? (
+                <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: 8, padding: 2, gap: 2 }}>
+                  {[['section','Section'],['form','Entire form']].map(([val, lbl]) => (
+                    <button key={val} onClick={() => setBulkScope(val)}
+                      style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none',
+                        background: effectiveScope === val ? '#fff' : 'transparent',
+                        color: effectiveScope === val ? '#111' : '#9ca3af', cursor: 'pointer',
+                        boxShadow: effectiveScope === val ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}>
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>
+                  {frmOK ? 'entire form' : 'this section'}
+                </span>
+              )}
             </div>
 
-            {hasYesNoNA && (
-              <div style={{ display: 'flex', gap: 6, marginBottom: ssOpts.length > 0 ? 6 : 0 }}>
+            {/* Yes/No/NA row */}
+            {activeYNN && (
+              <div style={{ display: 'flex', gap: 6, marginBottom: activeSS ? 6 : 0 }}>
                 {[{l:'Yes',i:'✓',c:'#16a34a',bg:'#f0fdf4'},{l:'No',i:'✗',c:'#dc2626',bg:'#fef2f2'},{l:'NA',i:'NA',c:'#d97706',bg:'#fffbeb'}].map(opt => (
-                  <button key={opt.l} onClick={() => bulkApply(opt.l, 'yes-no-na')}
+                  <button key={opt.l} onClick={() => bulkApply(opt.l, 'yes-no-na', effectiveScope)}
                     style={{ flex: 1, padding: '7px 4px', border: `1.5px solid ${opt.c}35`,
                       borderRadius: 10, background: opt.bg, color: opt.c,
                       fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
@@ -1332,10 +1359,11 @@ function InspectionFillScreen({ form, onClose }) {
               </div>
             )}
 
-            {ssOpts.length > 0 && (
+            {/* Single Select row */}
+            {activeSS && (
               <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                {ssOpts.map(opt => (
-                  <button key={opt.label} onClick={() => bulkApply(opt.label, 'single-select')}
+                {activeSS.map(opt => (
+                  <button key={opt.label} onClick={() => bulkApply(opt.label, 'single-select', effectiveScope)}
                     style={{ padding: '4px 11px', border: '1.5px solid #e5e7eb', borderRadius: 20,
                       background: '#f9fafb', color: '#374151', fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}>
                     {opt.label}
@@ -1343,6 +1371,7 @@ function InspectionFillScreen({ form, onClose }) {
                 ))}
               </div>
             )}
+
           </div>
         )}
 
