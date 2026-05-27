@@ -1,4 +1,4 @@
-// Observation Workflow Builder — 15 system fields + custom fields, drag-to-reorder
+// Observation Workflow Builder — canvas + mobile preview layout
 function ObservationWorkflow() {
   const TAG_COLORS = {
     'User Input':                { bg:'#eff6ff', border:'#bfdbfe', text:'#1d4ed8' },
@@ -62,8 +62,8 @@ function ObservationWorkflow() {
     { type:'short-text',    label:'Short Text',    icon:'T' },
     { type:'long-text',     label:'Long Text',     icon:'¶' },
     { type:'number',        label:'Number',        icon:'#' },
-    { type:'date-time',     label:'Date / Time',   icon:'📅', disabled:true, tooltip:'Date & Time already exists in this workflow and cannot be added again.' },
-    { type:'location',      label:'Location',      icon:'📍', disabled:true, tooltip:'Location already exists in this workflow and cannot be added again.' },
+    { type:'date-time',     label:'Date / Time',   icon:'📅', disabled:true, tooltip:'Date & Time already exists in this workflow.' },
+    { type:'location',      label:'Location',      icon:'📍', disabled:true, tooltip:'Location already exists in this workflow.' },
   ];
 
   const [fields,       setFields]       = React.useState(SYSTEM_FIELDS);
@@ -71,6 +71,9 @@ function ObservationWorkflow() {
   const [showTypeMenu, setShowTypeMenu] = React.useState(false);
   const [dragIdx,      setDragIdx]      = React.useState(null);
   const [dragOver,     setDragOver]     = React.useState(null);
+  const [selectedId,   setSelectedId]   = React.useState(SYSTEM_FIELDS[1].id);
+
+  const selectedField = fields.find(f => f.id === selectedId) || null;
 
   function updateField(id, patch) {
     setFields(fs => fs.map(f => f.id !== id ? f : { ...f, ...patch }));
@@ -78,28 +81,33 @@ function ObservationWorkflow() {
   }
 
   function addCustomField(type) {
+    const hasOptions = ['single-select','dropdown','multi-choice'].includes(type);
     const f = {
       id: 'custom-' + Date.now(), name: '', isSystem: false,
       tags: ['User Input', 'Editable'],
       inputType: ['single-select','dropdown'].includes(type) ? 'dropdown' : type === 'multi-choice' ? 'multi-choice' : type,
       fieldType: type,
-      config: ['label','helpText','required'],
-      options: ['single-select','dropdown','multi-choice'].includes(type) ? ['Option 1','Option 2'] : undefined,
+      config: ['label','helpText','required', ...(hasOptions ? ['options'] : [])],
+      options: hasOptions ? ['Option 1','Option 2'] : undefined,
       required: false,
     };
     setFields(fs => [...fs, f]);
+    setSelectedId(f.id);
     setShowTypeMenu(false);
     setSaved(false);
   }
 
   function removeCustomField(id) {
-    setFields(fs => fs.filter(f => f.id !== id));
+    setFields(fs => {
+      const next = fs.filter(f => f.id !== id);
+      if (selectedId === id) setSelectedId(next[0]?.id || null);
+      return next;
+    });
     setSaved(false);
   }
 
   function save() { setSaved(true); setTimeout(() => setSaved(false), 2400); }
 
-  // drag-to-reorder
   function onDragStart(i) { setDragIdx(i); }
   function onDragOver(e, i) { e.preventDefault(); setDragOver(i); }
   function onDrop(i) {
@@ -114,264 +122,384 @@ function ObservationWorkflow() {
     setSaved(false);
   }
 
+  const INPUT_TYPE_LABEL = {
+    hidden:'Hidden', longtext:'Long Text', photos:'Photos', dropdown:'Dropdown',
+    'multi-choice':'Multi-choice', text:'Short Text', latlong:'Lat/Long',
+    datetime:'Date & Time', readonly:'Read-only', userpicker:'User Picker',
+    'short-text':'Short Text', 'long-text':'Long Text', number:'Number',
+  };
+
   return (
     <>
       <TopBar crumbs={['Masters', 'Observation Workflow']} actions={
         <Btn variant="primary" onClick={save}>{saved ? '✓ Saved' : 'Save Changes'}</Btn>
       }/>
-      <div className="page">
-        <div className="page-head">
-          <div>
-            <h1>Observation Workflow</h1>
-            <div className="sub">This workflow is used across all projects. Changes apply globally.</div>
+
+      <div className="builder" style={{ gridTemplateColumns:'280px 1fr 300px' }}>
+
+        {/* ── LEFT: ordered field list ── */}
+        <div className="left" style={{ overflowY:'auto', display:'flex', flexDirection:'column' }}>
+          <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', color:'var(--n-500)', letterSpacing:'0.06em', marginBottom:10 }}>
+            Fields · {fields.length}
           </div>
-          <Badge tone="neutral">{fields.length} fields</Badge>
-        </div>
 
-        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-          {fields.map((field, idx) => (
-            <ObsFieldCard key={field.id} field={field} idx={idx}
-              tagColors={TAG_COLORS}
-              isDragOver={dragOver === idx}
-              onDragStart={() => onDragStart(idx)}
-              onDragOver={e => onDragOver(e, idx)}
-              onDrop={() => onDrop(idx)}
-              onDragEnd={() => { setDragIdx(null); setDragOver(null); }}
-              onChange={patch => updateField(field.id, patch)}
-              onDelete={field.isSystem ? null : () => removeCustomField(field.id)}/>
-          ))}
-        </div>
-
-        {/* + New Field */}
-        <div style={{ marginTop:12, position:'relative', display:'inline-block' }}>
-          <button className="btn"
-            style={{ display:'flex', alignItems:'center', gap:6, fontSize:13 }}
-            onClick={() => setShowTypeMenu(v => !v)}>
-            + New Field
-          </button>
-          {showTypeMenu && (
-            <div style={{ position:'absolute', top:'100%', left:0, marginTop:4, zIndex:100,
-              background:'var(--n-0)', border:'1px solid var(--n-200)', borderRadius:8,
-              boxShadow:'0 4px 16px rgba(0,0,0,0.12)', minWidth:220, overflow:'hidden' }}>
-              {CUSTOM_TYPES.map(t => (
-                <button key={t.type}
-                  onClick={() => !t.disabled && addCustomField(t.type)}
-                  title={t.disabled ? t.tooltip : undefined}
-                  style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 14px',
-                    background:'none', border:'none', cursor:t.disabled?'default':'pointer', textAlign:'left',
-                    opacity:t.disabled?0.4:1, fontSize:13 }}
-                  onMouseOver={e => { if (!t.disabled) e.currentTarget.style.background='var(--n-50)'; }}
-                  onMouseOut={e => e.currentTarget.style.background='none'}>
-                  <span style={{ fontSize:16, width:20, textAlign:'center' }}>{t.icon}</span>
-                  <div>
-                    <div style={{ fontWeight:500 }}>{t.label}</div>
-                    {t.disabled && <div style={{ fontSize:10.5, color:'var(--n-400)', marginTop:1 }}>{t.tooltip}</div>}
+          <div style={{ display:'flex', flexDirection:'column', gap:3, flex:1 }}>
+            {fields.map((field, idx) => {
+              const isSel = selectedId === field.id;
+              const typeLabel = INPUT_TYPE_LABEL[field.inputType || field.fieldType] || field.inputType;
+              return (
+                <div key={field.id} draggable
+                  onDragStart={() => onDragStart(idx)}
+                  onDragOver={e => onDragOver(e, idx)}
+                  onDrop={() => onDrop(idx)}
+                  onDragEnd={() => { setDragIdx(null); setDragOver(null); }}
+                  onClick={() => setSelectedId(field.id)}
+                  style={{
+                    display:'flex', alignItems:'center', gap:7, padding:'9px 10px',
+                    border:`1.5px solid ${isSel ? 'var(--brand-400)' : dragOver===idx ? 'var(--brand-200)' : 'var(--n-200)'}`,
+                    borderRadius:8, cursor:'pointer', userSelect:'none',
+                    background: isSel ? 'var(--brand-50)' : dragOver===idx ? 'var(--brand-50)' : 'var(--n-0)',
+                    opacity: dragIdx===idx ? 0.4 : 1,
+                  }}>
+                  <span style={{ fontSize:13, color:'var(--n-300)', cursor:'grab', flexShrink:0 }}
+                    onMouseDown={e => e.stopPropagation()}>⋮⋮</span>
+                  <span style={{ fontSize:10.5, fontWeight:700, color:'var(--n-400)', minWidth:16, textAlign:'right', flexShrink:0 }}>{idx+1}</span>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:12.5, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                      color: isSel ? 'var(--brand-700)' : 'var(--n-800)' }}>
+                      {field.name || <span style={{ color:'var(--n-300)', fontStyle:'italic' }}>Untitled</span>}
+                    </div>
                   </div>
-                </button>
-              ))}
+                  <span style={{ fontSize:10.5, color:'var(--n-500)', fontWeight:500, flexShrink:0 }}>{typeLabel}</span>
+                  {!field.isSystem && (
+                    <button className="btn ghost icon-only sm" style={{ color:'var(--danger)', flexShrink:0 }}
+                      onClick={e => { e.stopPropagation(); removeCustomField(field.id); }}>✕</button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* + New Field */}
+          <div style={{ marginTop:12, position:'relative' }}>
+            <button className="btn" style={{ width:'100%', fontSize:12 }}
+              onClick={() => setShowTypeMenu(v => !v)}>+ New Field</button>
+            {showTypeMenu && (
+              <div style={{ position:'absolute', bottom:'100%', left:0, marginBottom:4, zIndex:100,
+                background:'var(--n-0)', border:'1px solid var(--n-200)', borderRadius:8,
+                boxShadow:'0 4px 16px rgba(0,0,0,0.12)', minWidth:220, overflow:'hidden' }}>
+                {CUSTOM_TYPES.map(t => (
+                  <button key={t.type}
+                    onClick={() => !t.disabled && addCustomField(t.type)}
+                    title={t.disabled ? t.tooltip : undefined}
+                    style={{ display:'flex', alignItems:'center', gap:10, width:'100%', padding:'9px 14px',
+                      background:'none', border:'none', cursor:t.disabled?'default':'pointer', textAlign:'left',
+                      opacity:t.disabled?0.4:1, fontSize:13 }}
+                    onMouseOver={e => { if (!t.disabled) e.currentTarget.style.background='var(--n-50)'; }}
+                    onMouseOut={e => e.currentTarget.style.background='none'}>
+                    <span style={{ fontSize:16, width:20, textAlign:'center' }}>{t.icon}</span>
+                    <div>
+                      <div style={{ fontWeight:500 }}>{t.label}</div>
+                      {t.disabled && <div style={{ fontSize:10.5, color:'var(--n-400)', marginTop:1 }}>{t.tooltip}</div>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{ marginTop:12 }}>
+            <Btn variant="primary" style={{ width:'100%' }} onClick={save}>{saved ? '✓ Saved' : 'Save Changes'}</Btn>
+          </div>
+        </div>
+
+        {/* ── CENTER: field config ── */}
+        <div className="center">
+          {selectedField ? (
+            <div style={{ maxWidth:640, margin:'0 auto' }}>
+
+              {/* Field header */}
+              <div style={{ marginBottom:20 }}>
+                <div style={{ display:'flex', alignItems:'flex-start', gap:10, marginBottom:8 }}>
+                  <div style={{ flex:1 }}>
+                    <h2 style={{ margin:0, fontSize:19, fontWeight:700, color:'var(--n-900)' }}>
+                      {selectedField.name || <span style={{ color:'var(--n-300)', fontStyle:'italic' }}>Untitled field</span>}
+                    </h2>
+                    <div style={{ fontSize:12, color:'var(--n-500)', marginTop:3 }}>
+                      {INPUT_TYPE_LABEL[selectedField.inputType || selectedField.fieldType] || selectedField.inputType}
+                      {!selectedField.isSystem && <span style={{ marginLeft:8, padding:'1px 6px', borderRadius:4, background:'#f0fdf4', color:'#15803d', fontWeight:600, border:'1px solid #bbf7d0', fontSize:11 }}>Custom</span>}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                  {(selectedField.tags||[]).map(tag => {
+                    const c = TAG_COLORS[tag] || { bg:'#f1f5f9', border:'#cbd5e1', text:'#475569' };
+                    return <span key={tag} style={{ fontSize:11, padding:'2px 9px', borderRadius:10, fontWeight:600, background:c.bg, border:`1px solid ${c.border}`, color:c.text, whiteSpace:'nowrap' }}>{tag}</span>;
+                  })}
+                </div>
+              </div>
+
+              {/* Config card */}
+              <div style={{ background:'var(--n-0)', border:'1px solid var(--n-200)', borderRadius:12, padding:'20px' }}>
+                <ObsFieldConfigBody field={selectedField} onChange={patch => updateField(selectedField.id, patch)}/>
+              </div>
+
+            </div>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', color:'var(--n-400)', gap:8 }}>
+              <span style={{ fontSize:32 }}>◎</span>
+              <span style={{ fontSize:14 }}>Select a field from the left panel</span>
             </div>
           )}
         </div>
 
-        <div style={{ display:'flex', justifyContent:'flex-end', marginTop:24 }}>
-          <Btn variant="primary" onClick={save}>{saved ? '✓ Saved' : 'Save Changes'}</Btn>
+        {/* ── RIGHT: mobile preview ── */}
+        <div className="right">
+          <div style={{ fontSize:11, color:'var(--n-500)', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8 }}>
+            Mobile preview
+          </div>
+          <PhoneFrame>
+            <div style={{ padding:'12px 14px' }}>
+              <div style={{ fontWeight:700, fontSize:15, marginBottom:4, color:'#111' }}>New Observation</div>
+              <div style={{ fontSize:11, color:'#9ca3af', marginBottom:14 }}>Fill in the details below</div>
+              {fields.filter(f => f.inputType !== 'hidden').map(f => (
+                <ObsFieldMobilePreview key={f.id} field={f}/>
+              ))}
+            </div>
+          </PhoneFrame>
         </div>
+
       </div>
+
       {showTypeMenu && <div style={{ position:'fixed', inset:0, zIndex:99 }} onClick={() => setShowTypeMenu(false)}/>}
     </>
   );
 }
 
-function ObsFieldCard({ field, idx, tagColors, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd, onChange, onDelete }) {
-  const [expanded, setExpanded] = React.useState(false);
-
-  const inputTypeLabel = {
-    hidden:     'Hidden',
-    longtext:   'Long Text',
-    photos:     'Photo Upload',
-    dropdown:   'Dropdown',
-    'multi-choice':'Multi-choice',
-    text:       'Short Text',
-    latlong:    'Lat / Long',
-    datetime:   'Date & Time',
-    readonly:   'Read-only',
-    userpicker: 'User Picker',
-    'short-text':'Short Text',
-    'long-text': 'Long Text',
-    number:     'Number',
-  }[field.inputType || field.fieldType] || field.inputType;
+// Config body — extracted so it can render in the center panel
+function ObsFieldConfigBody({ field, onChange }) {
+  const [newOpt, setNewOpt] = React.useState('');
 
   return (
-    <div draggable
-      onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop} onDragEnd={onDragEnd}
-      style={{
-        border: `1.5px solid ${isDragOver ? 'var(--brand-400)' : expanded ? 'var(--brand-300)' : 'var(--n-200)'}`,
-        borderRadius:10, background: isDragOver ? 'var(--brand-50)' : expanded ? '#f8faff' : 'var(--n-0)',
-        overflow:'hidden', transition:'border-color 0.1s', opacity: isDragOver ? 0.7 : 1,
-      }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
 
-      {/* Card header */}
-      <div onClick={() => setExpanded(e => !e)}
-        style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 14px', cursor:'pointer', userSelect:'none' }}>
-
-        {/* Drag handle */}
-        <span style={{ fontSize:14, color:'var(--n-300)', cursor:'grab', flexShrink:0 }}
-          onMouseDown={e => e.stopPropagation()}>⋮⋮</span>
-
-        {/* Number */}
-        <span style={{ fontSize:11, fontWeight:700, color:'var(--n-400)', width:20, textAlign:'right', flexShrink:0 }}>{idx + 1}</span>
-
-        {/* Name + tags */}
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontWeight:600, fontSize:13.5, display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-            <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-              {field.name || <span style={{ color:'var(--n-300)', fontStyle:'italic' }}>Untitled field</span>}
-            </span>
-            {!field.isSystem && <span style={{ fontSize:10, padding:'1px 6px', borderRadius:4, background:'#f0fdf4', color:'#15803d', fontWeight:600, border:'1px solid #bbf7d0', flexShrink:0 }}>Custom</span>}
-          </div>
-          <div style={{ display:'flex', gap:4, marginTop:4, flexWrap:'wrap' }}>
-            {(field.tags || []).map(tag => {
-              const c = tagColors[tag] || { bg:'#f1f5f9', border:'#cbd5e1', text:'#475569' };
-              return (
-                <span key={tag} style={{ fontSize:10.5, padding:'1px 7px', borderRadius:10, fontWeight:600,
-                  background:c.bg, border:`1px solid ${c.border}`, color:c.text, whiteSpace:'nowrap' }}>
-                  {tag}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Input type badge */}
-        <span style={{ fontSize:11, color:'var(--n-500)', fontWeight:500, flexShrink:0 }}>{inputTypeLabel}</span>
-
-        {/* Delete for custom fields */}
-        {onDelete && (
-          <button className="btn ghost icon-only sm" style={{ flexShrink:0, color:'var(--danger)' }}
-            onClick={e => { e.stopPropagation(); onDelete(); }}>✕</button>
-        )}
-
-        <span style={{ fontSize:10, color:'var(--n-400)', flexShrink:0 }}>{expanded?'▲':'▼'}</span>
+      {/* Label */}
+      <div>
+        <label className="label">Label</label>
+        <input className="input" value={field.name} maxLength={80}
+          placeholder="Field label (max 80 chars)"
+          onChange={e => onChange({ name: e.target.value })}/>
       </div>
 
-      {/* Config body */}
-      {expanded && (
-        <div style={{ padding:'0 14px 16px', borderTop:'1px solid var(--n-100)' }}>
-
-          {/* Label */}
-          <div style={{ marginTop:14, marginBottom:10 }}>
-            <label className="label">Label</label>
-            <input className="input" style={{ fontSize:12 }} value={field.name} maxLength={80}
-              placeholder="Field label (max 80 chars)"
-              onChange={e => onChange({ name: e.target.value })}/>
-          </div>
-
-          {/* Help text */}
-          {(field.config||[]).includes('helpText') && (
-            <div style={{ marginBottom:10 }}>
-              <label className="label">Help text <span style={{ fontWeight:400, color:'var(--n-400)' }}>(optional)</span></label>
-              <input className="input" style={{ fontSize:12 }} value={field.helpText||''} maxLength={200}
-                placeholder="Guidance shown under the field…"
-                onChange={e => onChange({ helpText: e.target.value })}/>
-            </div>
-          )}
-
-          {/* Field 1 — hidden info banner */}
-          {field.inputType === 'hidden' && (
-            <div style={{ padding:'8px 10px', background:'#0f172a', borderRadius:6, fontSize:12, color:'#94a3b8', marginBottom:10 }}>
-              This field captures the raw user message. It is <strong style={{ color:'#e2e8f0' }}>never shown in the app UI</strong> and is saved silently to the database.
-            </div>
-          )}
-
-          {/* Options editor — dropdown/multi-choice fields */}
-          {(field.config||[]).includes('options') && (
-            <div style={{ marginBottom:10 }}>
-              <label className="label">Options</label>
-              <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                {(field.options||[]).map((opt, i) => (
-                  <div key={i} style={{ display:'flex', gap:6, alignItems:'center' }}>
-                    <input className="input" style={{ flex:1, fontSize:12 }} value={opt}
-                      onChange={e => {
-                        const next = (field.options||[]).map((o,j) => j===i?e.target.value:o);
-                        onChange({ options: next });
-                      }}/>
-                    <button className="btn ghost icon-only sm"
-                      onClick={() => onChange({ options: (field.options||[]).filter((_,j) => j!==i) })}>✕</button>
-                  </div>
-                ))}
-              </div>
-              <button className="btn sm" style={{ marginTop:5 }}
-                onClick={() => onChange({ options: [...(field.options||[]), 'New option'] })}>
-                + Add option
-              </button>
-            </div>
-          )}
-
-          {/* Max images */}
-          {(field.config||[]).includes('maxImages') && (
-            <div style={{ marginBottom:10 }}>
-              <label className="label">Max images</label>
-              <input type="number" className="input" style={{ fontSize:12, width:80 }} min={1} max={20}
-                value={field.maxImages||5}
-                onChange={e => onChange({ maxImages: +e.target.value })}/>
-            </div>
-          )}
-
-          {/* Document upload for field 12 */}
-          {(field.config||[]).includes('document') && (
-            <div style={{ marginBottom:10 }}>
-              <label className="label">Reference document</label>
-              <div style={{ padding:'12px', border:'1.5px dashed var(--n-300)', borderRadius:6, textAlign:'center', fontSize:12, color:'var(--n-400)' }}>
-                {field.documentName
-                  ? <span>📄 {field.documentName} <button style={{ background:'none', border:'none', color:'var(--danger)', cursor:'pointer', fontSize:11 }} onClick={() => onChange({ documentName:null })}>Remove</button></span>
-                  : <span>Drop PDF or DOCX here, or <label style={{ color:'var(--brand-600)', cursor:'pointer', fontWeight:500 }}>browse</label></span>
-                }
-              </div>
-              {field.documentName && (
-                <div style={{ fontSize:11, color:'var(--n-400)', marginTop:4 }}>Based on: {field.documentName}</div>
-              )}
-            </div>
-          )}
-
-          {/* Assign rule for Reviewer */}
-          {(field.config||[]).includes('assignRule') && (
-            <div style={{ marginBottom:10 }}>
-              <label className="label">Default assignment rule</label>
-              <div style={{ display:'flex', gap:6 }}>
-                {['by-role','by-user','manual'].map(rule => (
-                  <button key={rule}
-                    onClick={() => onChange({ assignRule: rule })}
-                    style={{ padding:'5px 12px', fontSize:12, borderRadius:6, cursor:'pointer',
-                      border:`1.5px solid ${(field.assignRule||'by-role')===rule?'var(--brand-500)':'var(--n-200)'}`,
-                      background:(field.assignRule||'by-role')===rule?'var(--brand-50)':'var(--n-0)',
-                      color:(field.assignRule||'by-role')===rule?'var(--brand-700)':'var(--n-600)',
-                      fontWeight:(field.assignRule||'by-role')===rule?600:400 }}>
-                    {rule==='by-role'?'By Role':rule==='by-user'?'By User':'Manual'}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Show/hide toggle for Image Analysis */}
-          {(field.config||[]).includes('showHide') && (
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
-              <Switch on={field.showAnalysis !== false} onChange={v => onChange({ showAnalysis: v })}/>
-              <span style={{ fontSize:12, color:'var(--n-700)' }}>Show Image Analysis on form</span>
-            </div>
-          )}
-
-          {/* Required toggle */}
-          {(field.config||[]).includes('required') && (
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
-              <Switch on={!!field.required} onChange={v => onChange({ required: v })}/>
-              <span style={{ fontSize:12, color:'var(--n-700)' }}>Required</span>
-            </div>
-          )}
-
+      {/* Help text */}
+      {(field.config||[]).includes('helpText') && (
+        <div>
+          <label className="label">Help text <span style={{ fontWeight:400, color:'var(--n-400)' }}>(optional)</span></label>
+          <input className="input" value={field.helpText||''} maxLength={200}
+            placeholder="Guidance shown under the field…"
+            onChange={e => onChange({ helpText: e.target.value })}/>
         </div>
       )}
+
+      {/* Hidden field banner */}
+      {field.inputType === 'hidden' && (
+        <div style={{ padding:'10px 12px', background:'#0f172a', borderRadius:8, fontSize:12, color:'#94a3b8' }}>
+          This field captures the raw user message. It is <strong style={{ color:'#e2e8f0' }}>never shown in the app UI</strong> and is saved silently to the database.
+        </div>
+      )}
+
+      {/* Options editor — dropdown / single-select / multi-choice */}
+      {(field.config||[]).includes('options') && (
+        <div>
+          <label className="label">Options</label>
+          <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+            {(field.options||[]).map((opt, i) => (
+              <div key={i} style={{ display:'flex', gap:6, alignItems:'center' }}>
+                <div style={{ width:10, height:10, borderRadius:2, border:'1.5px solid var(--n-300)', flexShrink:0, marginTop:1 }}/>
+                <input className="input" style={{ flex:1 }} value={opt}
+                  onChange={e => {
+                    const next = (field.options||[]).map((o,j) => j===i ? e.target.value : o);
+                    onChange({ options: next });
+                  }}/>
+                <button className="btn ghost icon-only sm"
+                  onClick={() => onChange({ options: (field.options||[]).filter((_,j) => j!==i) })}>✕</button>
+              </div>
+            ))}
+          </div>
+          <div style={{ display:'flex', gap:6, marginTop:7 }}>
+            <input className="input" placeholder="New option…"
+              value={newOpt} onChange={e => setNewOpt(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && newOpt.trim()) {
+                  onChange({ options: [...(field.options||[]), newOpt.trim()] });
+                  setNewOpt('');
+                }
+              }}/>
+            <button className="btn sm" onClick={() => {
+              if (!newOpt.trim()) return;
+              onChange({ options: [...(field.options||[]), newOpt.trim()] });
+              setNewOpt('');
+            }}>+ Add</button>
+          </div>
+        </div>
+      )}
+
+      {/* Max images */}
+      {(field.config||[]).includes('maxImages') && (
+        <div>
+          <label className="label">Max images</label>
+          <input type="number" className="input" style={{ width:100 }} min={1} max={20}
+            value={field.maxImages||5}
+            onChange={e => onChange({ maxImages: +e.target.value })}/>
+        </div>
+      )}
+
+      {/* Reference document */}
+      {(field.config||[]).includes('document') && (
+        <div>
+          <label className="label">Reference document</label>
+          <div style={{ padding:'14px', border:'1.5px dashed var(--n-300)', borderRadius:8, textAlign:'center', fontSize:12, color:'var(--n-400)' }}>
+            {field.documentName
+              ? <span>📄 {field.documentName} <button style={{ background:'none', border:'none', color:'var(--danger)', cursor:'pointer', fontSize:11 }} onClick={() => onChange({ documentName:null })}>Remove</button></span>
+              : <span>Drop PDF or DOCX here, or <label style={{ color:'var(--brand-600)', cursor:'pointer', fontWeight:500 }}>browse</label></span>
+            }
+          </div>
+        </div>
+      )}
+
+      {/* Assign rule */}
+      {(field.config||[]).includes('assignRule') && (
+        <div>
+          <label className="label">Default assignment rule</label>
+          <div style={{ display:'flex', gap:6 }}>
+            {['by-role','by-user','manual'].map(rule => (
+              <button key={rule}
+                onClick={() => onChange({ assignRule: rule })}
+                style={{ flex:1, padding:'7px 10px', fontSize:12, borderRadius:8, cursor:'pointer',
+                  border:`1.5px solid ${(field.assignRule||'by-role')===rule?'var(--brand-500)':'var(--n-200)'}`,
+                  background:(field.assignRule||'by-role')===rule?'var(--brand-50)':'var(--n-0)',
+                  color:(field.assignRule||'by-role')===rule?'var(--brand-700)':'var(--n-600)',
+                  fontWeight:(field.assignRule||'by-role')===rule?600:400 }}>
+                {rule==='by-role'?'By Role':rule==='by-user'?'By User':'Manual'}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Show/hide for Image Analysis */}
+      {(field.config||[]).includes('showHide') && (
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <Switch on={field.showAnalysis !== false} onChange={v => onChange({ showAnalysis: v })}/>
+          <span style={{ fontSize:13, color:'var(--n-700)' }}>Show Image Analysis on form</span>
+        </div>
+      )}
+
+      {/* Required toggle */}
+      {(field.config||[]).includes('required') && (
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <Switch on={!!field.required} onChange={v => onChange({ required: v })}/>
+          <span style={{ fontSize:13, color:'var(--n-700)' }}>Required</span>
+        </div>
+      )}
+
     </div>
+  );
+}
+
+// Mobile preview card for each observation field
+function ObsFieldMobilePreview({ field }) {
+  if (field.inputType === 'hidden') return null;
+
+  const label = field.name || 'Untitled';
+  const isOptional = (field.tags||[]).includes('Optional');
+
+  const wrapper = (content) => (
+    <div style={{ marginBottom:12 }}>
+      <div style={{ fontSize:11.5, fontWeight:600, color:'#374151', marginBottom:4 }}>
+        {label}
+        {!field.required && isOptional && <span style={{ fontSize:10, color:'#9ca3af', fontWeight:400, marginLeft:4 }}>(optional)</span>}
+      </div>
+      {field.helpText && <div style={{ fontSize:10.5, color:'#9ca3af', marginBottom:5, fontStyle:'italic' }}>{field.helpText}</div>}
+      {content}
+    </div>
+  );
+
+  if (field.inputType === 'longtext') return wrapper(
+    <div style={{ padding:'8px 10px', border:'1px solid #e5e7eb', borderRadius:8, fontSize:11.5, color:'#9ca3af', minHeight:52 }}>
+      {field.helpText || 'Enter text…'}
+    </div>
+  );
+
+  if (field.inputType === 'photos') return wrapper(
+    <div style={{ padding:'14px 10px', border:'1.5px dashed #d1d5db', borderRadius:8, textAlign:'center', fontSize:11.5, color:'#9ca3af' }}>
+      📷 Tap to add photos
+      <span style={{ display:'block', fontSize:10, marginTop:2 }}>Max {field.maxImages||5} images</span>
+    </div>
+  );
+
+  if (field.inputType === 'dropdown') return wrapper(
+    <div style={{ border:'1px solid #e5e7eb', borderRadius:8, overflow:'hidden' }}>
+      {(field.options||[]).slice(0,4).map((opt,i) => (
+        <div key={i} style={{ padding:'7px 10px', fontSize:11.5, color:'#374151', borderBottom: i < Math.min((field.options||[]).length,4)-1 ? '1px solid #f3f4f6' : 'none', display:'flex', alignItems:'center', gap:6 }}>
+          <div style={{ width:14, height:14, borderRadius:3, border:'1.5px solid #d1d5db', flexShrink:0 }}/>
+          {opt}
+        </div>
+      ))}
+      {(field.options||[]).length > 4 && (
+        <div style={{ padding:'5px 10px', fontSize:10.5, color:'#9ca3af', background:'#f9fafb' }}>+{(field.options||[]).length-4} more…</div>
+      )}
+    </div>
+  );
+
+  if (field.inputType === 'multi-choice') return wrapper(
+    <div style={{ border:'1px solid #e5e7eb', borderRadius:8, overflow:'hidden' }}>
+      {(field.options||['Option 1','Option 2']).slice(0,3).map((opt,i) => (
+        <div key={i} style={{ padding:'7px 10px', fontSize:11.5, color:'#374151', borderBottom: i<2?'1px solid #f3f4f6':'none', display:'flex', alignItems:'center', gap:6 }}>
+          <div style={{ width:14, height:14, borderRadius:7, border:'1.5px solid #d1d5db', flexShrink:0 }}/>
+          {opt}
+        </div>
+      ))}
+    </div>
+  );
+
+  if (field.inputType === 'text') return wrapper(
+    <div style={{ padding:'8px 10px', border:'1px solid #e5e7eb', borderRadius:8, fontSize:11.5, color:'#9ca3af' }}>
+      {field.helpText || 'Enter text…'}
+    </div>
+  );
+
+  if (field.inputType === 'latlong') return wrapper(
+    <div style={{ padding:'8px 10px', border:'1px solid #e5e7eb', borderRadius:8, fontSize:11.5, color:'#9ca3af', display:'flex', gap:6, alignItems:'center' }}>
+      📍 Tap to capture coordinates
+    </div>
+  );
+
+  if (field.inputType === 'datetime') return wrapper(
+    <div style={{ padding:'8px 10px', border:'1px solid #e5e7eb', borderRadius:8, fontSize:11.5, color:'#9ca3af', display:'flex', gap:6, alignItems:'center' }}>
+      📅 DD/MM/YYYY HH:MM
+    </div>
+  );
+
+  if (field.inputType === 'readonly') return wrapper(
+    <div style={{ padding:'8px 10px', background:'#f8fafc', border:'1px solid #e5e7eb', borderRadius:8, fontSize:11.5, color:'#6b7280', fontStyle:'italic' }}>
+      {field.inputType === 'readonly' && field.showAnalysis !== false ? '🔍 AI-generated analysis will appear here' : '📋 Auto-populated content'}
+    </div>
+  );
+
+  if (field.inputType === 'userpicker') return wrapper(
+    <div style={{ padding:'8px 10px', border:'1px solid #e5e7eb', borderRadius:8, fontSize:11.5, color:'#9ca3af', display:'flex', gap:6, alignItems:'center' }}>
+      <div style={{ width:22, height:22, borderRadius:'50%', background:'#e5e7eb', flexShrink:0 }}/>
+      Select reviewer…
+    </div>
+  );
+
+  if (field.inputType === 'number') return wrapper(
+    <div style={{ padding:'8px 10px', border:'1px solid #e5e7eb', borderRadius:8, fontSize:11.5, color:'#9ca3af' }}>0</div>
+  );
+
+  return wrapper(
+    <div style={{ padding:'8px 10px', border:'1px solid #e5e7eb', borderRadius:8, fontSize:11.5, color:'#9ca3af' }}>—</div>
   );
 }
 

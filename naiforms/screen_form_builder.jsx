@@ -138,6 +138,7 @@ function FormBuilder({ form, onBack, onPublish }) {
         ) : (
           <>
             <Btn variant="ghost" onClick={onBack}>← Library</Btn>
+            {isInspection && <Btn onClick={() => setShowFill(true)}>▶ Try form</Btn>}
             <Btn>Save draft</Btn>
             <Btn variant="primary" onClick={() => setShowPublish(true)}>Publish →</Btn>
           </>
@@ -265,11 +266,14 @@ function FormBuilder({ form, onBack, onPublish }) {
                 <div className="section-head" style={{ display:'flex', alignItems:'center', gap:8 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:6, flex:1 }}>
                     <input className="input"
-                      style={{ border:'none', borderBottom:'1px dashed var(--n-300)', padding:'2px 0', fontSize:14, fontWeight:600, flex:1, background:'transparent', outline:'none' }}
+                      style={{ border:'1.5px solid transparent', borderRadius:6, padding:'4px 8px', fontSize:14, fontWeight:600, flex:1, background:'transparent' }}
                       value={section.title}
+                      readOnly={isViewMode}
                       onChange={e => updateSection(section.id, { title: e.target.value })}
-                      onFocus={e => e.target.style.borderBottomColor='var(--brand-500)'}
-                      onBlur={e => e.target.style.borderBottomColor='var(--n-300)'}
+                      onFocus={e => { e.target.style.background='var(--n-0)'; e.target.style.borderColor='var(--brand-400)'; }}
+                      onBlur={e => { e.target.style.background='transparent'; e.target.style.borderColor='transparent'; }}
+                      onMouseOver={e => { if (document.activeElement !== e.target) e.target.style.background='var(--n-50)'; }}
+                      onMouseOut={e => { if (document.activeElement !== e.target) e.target.style.background='transparent'; }}
                       onClick={e => e.stopPropagation()}/>
                     <span style={{ fontSize:11, color:'var(--n-400)' }}>✏</span>
                   </div>
@@ -601,27 +605,35 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
                 <label className="label" style={{ margin:0 }}>Options & Scoring</label>
                 <div style={{ fontSize:11, color:'var(--n-400)' }}>Weight · ⚠ Triggers NCR</div>
               </div>
-              {opts.map((opt, oi) => (
-                <div key={opt.label} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', marginBottom:4,
-                  background: opt.triggersNCR ? '#fef2f2' : 'var(--n-50)', borderRadius:6,
-                  border: `1px solid ${opt.triggersNCR ? '#fecaca' : 'var(--n-200)'}` }}>
-                  <span style={{ fontSize:13, fontWeight:600, minWidth:28, color:'var(--n-700)' }}>{opt.label}</span>
-                  <div style={{ flex:1 }}>
-                    <input type="number" className="input" style={{ fontSize:12, width:72 }}
-                      step="1" value={opt.weight ?? 0}
-                      onChange={e => {
-                        const next = opts.map((o,i) => i===oi ? { ...o, weight: parseFloat(e.target.value)||0 } : o);
+              {opts.map((opt, oi) => {
+                const icon  = opt.label === 'Yes' ? '✓' : opt.label === 'No' ? '✗' : 'NA';
+                const color = opt.label === 'Yes' ? '#16a34a' : opt.label === 'No' ? '#dc2626' : '#d97706';
+                const bg    = opt.label === 'Yes' ? '#f0fdf4' : opt.label === 'No' ? '#fef2f2' : '#fffbeb';
+                return (
+                  <div key={opt.label} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', marginBottom:4,
+                    background: opt.triggersNCR ? '#fef2f2' : 'var(--n-50)', borderRadius:6,
+                    border: `1px solid ${opt.triggersNCR ? '#fecaca' : 'var(--n-200)'}` }}>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minWidth:38, height:28,
+                      borderRadius:6, background:bg, border:`1.5px solid ${color}40`, flexShrink:0 }}>
+                      <span style={{ fontSize:13, fontWeight:800, color }}>{icon}</span>
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <input type="number" className="input" style={{ fontSize:12, width:72 }}
+                        step="1" value={opt.weight ?? 0}
+                        onChange={e => {
+                          const next = opts.map((o,i) => i===oi ? { ...o, weight: parseFloat(e.target.value)||0 } : o);
+                          onUpdate({ options: next });
+                        }}/>
+                    </div>
+                    <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none', whiteSpace:'nowrap' }}>
+                      <Switch on={!!opt.triggersNCR} onChange={v => {
+                        const next = opts.map((o,i) => i===oi ? { ...o, triggersNCR: v } : o);
                         onUpdate({ options: next });
-                      }}/>
+                      }}/> ⚠
+                    </label>
                   </div>
-                  <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none', whiteSpace:'nowrap' }}>
-                    <Switch on={!!opt.triggersNCR} onChange={v => {
-                      const next = opts.map((o,i) => i===oi ? { ...o, triggersNCR: v } : o);
-                      onUpdate({ options: next });
-                    }}/> ⚠
-                  </label>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -697,8 +709,8 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
             </div>
           )}
 
-          {/* Number / Decimal validation */}
-          {field.fieldType === 'number' && (
+          {/* Number / Decimal validation — statistics only */}
+          {field.fieldType === 'number' && !isInspection && (
             <div style={{ display:'grid', gridTemplateColumns: isDecimal ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr', gap:8, marginBottom:12 }}>
               <div>
                 <label className="label">Unit</label>
@@ -894,13 +906,18 @@ function FieldPreview({ field, questionNumber }) {
       {/* Primary response control */}
       {field.fieldType === 'yes-no-na' && (
         <div style={{ display:'flex', gap:5 }}>
-          {opts.map(o => (
-            <div key={o.label} style={{ padding:'5px 10px', border:'1px solid var(--n-200)', borderRadius:6, fontSize:12, color:'var(--n-600)',
-              display:'flex', alignItems:'center', gap:4 }}>
-              {o.label}
-              {o.triggersNCR && <span style={{ fontSize:9, color:'#dc2626', fontWeight:700 }}>⚠</span>}
-            </div>
-          ))}
+          {opts.map(o => {
+            const icon  = o.label === 'Yes' ? '✓' : o.label === 'No' ? '✗' : 'NA';
+            const color = o.label === 'Yes' ? '#16a34a' : o.label === 'No' ? '#dc2626' : '#d97706';
+            const bg    = o.label === 'Yes' ? '#f0fdf4' : o.label === 'No' ? '#fef2f2' : '#fffbeb';
+            return (
+              <div key={o.label} style={{ flex:1, padding:'6px 8px', border:`1.5px solid ${color}40`, borderRadius:8,
+                background:bg, display:'flex', alignItems:'center', justifyContent:'center', gap:4 }}>
+                <span style={{ fontSize:13, fontWeight:800, color }}>{icon}</span>
+                {o.triggersNCR && <span style={{ fontSize:8, color:'#dc2626', fontWeight:700 }}>⚠</span>}
+              </div>
+            );
+          })}
         </div>
       )}
       {field.fieldType === 'single-select' && (
@@ -996,18 +1013,20 @@ function FillQuestion({ field, questionNumber, answer, onAnswer, hasError }) {
       {field.fieldType === 'yes-no-na' && (
         <div style={{ display: 'flex', gap: 8 }}>
           {opts.map(opt => {
-            const sel = answer === opt.label;
-            const c = opt.label === 'Yes' ? 'rgba(0,107,68,1)' : opt.label === 'No' ? 'rgba(253,0,19,1)' : '#6b7280';
+            const sel   = answer === opt.label;
+            const icon  = opt.label === 'Yes' ? '✓' : opt.label === 'No' ? '✗' : 'NA';
+            const color = opt.label === 'Yes' ? '#16a34a' : opt.label === 'No' ? '#dc2626' : '#d97706';
+            const bg    = opt.label === 'Yes' ? '#f0fdf4' : opt.label === 'No' ? '#fef2f2' : '#fffbeb';
             return (
               <button key={opt.label} onClick={() => onAnswer(sel ? null : opt.label)}
-                style={{ flex: 1, padding: '11px 6px', border: `2px solid ${sel ? c : '#e5e7eb'}`,
-                  borderRadius: 12, background: sel ? c : '#f9fafb',
-                  color: sel ? '#fff' : '#374151',
-                  fontSize: 14, fontWeight: 700, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                style={{ flex: 1, padding: '12px 6px', border: `2px solid ${sel ? color : '#e5e7eb'}`,
+                  borderRadius: 12, background: sel ? color : bg,
+                  color: sel ? '#fff' : color,
+                  fontSize: 16, fontWeight: 800, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                   transition: 'all 0.12s' }}>
-                {opt.label}
-                {opt.triggersNCR && <span style={{ fontSize: 9, opacity: 0.85 }}>⚠</span>}
+                {icon}
+                {opt.triggersNCR && <span style={{ fontSize: 9, opacity: 0.8 }}>⚠</span>}
               </button>
             );
           })}
