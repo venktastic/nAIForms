@@ -30,6 +30,7 @@ function FormBuilder({ form, onBack, onPublish }) {
   const [masterTab, setMasterTab]    = useState('all');
   const [masterSearch, setMasterSearch] = useState('');
   const [showFill, setShowFill]      = useState(false);
+  const [addFieldModal, setAddFieldModal] = useState(null); // null | sectionId
 
   const isInspection = data.formType !== 'statistics';
   const isViewMode   = data.status === 'published';
@@ -247,8 +248,9 @@ function FormBuilder({ form, onBack, onPublish }) {
               <div style={{ fontSize:13, color:'var(--n-500)', marginTop:6, display:'flex', gap:12, alignItems:'center' }}>
                 <span>{data.sections.length} section{data.sections.length!==1?'s':''} · {totalFields} field{totalFields!==1?'s':''}</span>
                 <span style={{ padding:'2px 8px', borderRadius:4, fontSize:11, fontWeight:600,
-                  background:isInspection?'#6366f115':'#10b98115', color:isInspection?'#6366f1':'#10b981' }}>
-                  {isInspection ? 'Inspection' : 'Statistics Capture'}
+                  background: data.formType==='statistics' ? '#10b98115' : data.formType==='audit' ? '#0ea5e915' : '#6366f115',
+                  color: data.formType==='statistics' ? '#10b981' : data.formType==='audit' ? '#0284c7' : '#6366f1' }}>
+                  {data.formType === 'statistics' ? 'Statistics Capture' : data.formType === 'audit' ? 'Audit' : 'Inspection'}
                 </span>
               </div>
             </div>
@@ -303,10 +305,22 @@ function FormBuilder({ form, onBack, onPublish }) {
                     />
                   ))}
 
-                  {section.fields.length === 0 && (
+                  {section.fields.length === 0 && !isInspection && (
                     <div style={{ padding:16, textAlign:'center', color:'var(--n-400)', fontSize:12, border:'1px dashed var(--n-300)', borderRadius:8 }}>
-                      {isInspection ? 'Click a field type in the left panel to add it here' : 'Add fields from the master panel on the left'}
+                      Add fields from the master panel on the left
                     </div>
+                  )}
+
+                  {isInspection && !isViewMode && (
+                    <button onClick={e => { e.stopPropagation(); setAddFieldModal(section.id); }}
+                      style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, width:'100%',
+                        marginTop: section.fields.length ? 8 : 0,
+                        padding:'10px 16px', border:'1.5px dashed var(--n-300)', borderRadius:8,
+                        background:'transparent', color:'var(--n-500)', fontSize:13, fontWeight:500, cursor:'pointer' }}
+                      onMouseOver={e => { e.currentTarget.style.borderColor='var(--brand-400)'; e.currentTarget.style.color='var(--brand-600)'; }}
+                      onMouseOut={e => { e.currentTarget.style.borderColor='var(--n-300)'; e.currentTarget.style.color='var(--n-500)'; }}>
+                      + Add Field
+                    </button>
                   )}
                 </div>
               </div>
@@ -377,6 +391,14 @@ function FormBuilder({ form, onBack, onPublish }) {
         <InspectionFillScreen form={data} onClose={() => setShowFill(false)}/>
       )}
 
+      {addFieldModal && (
+        <AddFieldModal
+          sectionId={addFieldModal}
+          onAdd={(sid, type) => { addBlankField(sid, type); setAddFieldModal(null); }}
+          onClose={() => setAddFieldModal(null)}
+        />
+      )}
+
       {showPublish && (() => {
         const allProjects = [];
         (window.ORG_HIERARCHY || []).forEach(org =>
@@ -443,6 +465,46 @@ function FormBuilder({ form, onBack, onPublish }) {
         );
       })()}
     </>
+  );
+}
+
+const FIELD_TYPE_DESCS = {
+  'yes-no-na':     'Scored pass/fail questions',
+  'single-select': 'Choose one from a list',
+  'number':        'Numeric entry with unit',
+  'text':          'Single-line text answer',
+  'long-text':     'Multi-line notes',
+  'date-time':     'Date and time picker',
+  'photo':         'Camera or file attachment',
+  'location':      'GPS pin or map location',
+};
+
+function AddFieldModal({ sectionId, onAdd, onClose }) {
+  return (
+    <div className="scrim" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ width:520, maxWidth:'90vw' }}>
+        <div className="modal-head">
+          <h3>Add a field</h3>
+          <button className="btn ghost icon-only" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:10 }}>
+            {INSP_TYPES.map(t => (
+              <button key={t.type} onClick={() => onAdd(sectionId, t.type)}
+                style={{ display:'flex', flexDirection:'column', gap:5, padding:'14px 10px',
+                  border:'1.5px solid var(--n-200)', borderRadius:10, cursor:'pointer',
+                  background:'var(--n-0)', textAlign:'left', transition:'border-color 0.1s, background 0.1s' }}
+                onMouseOver={e => { e.currentTarget.style.borderColor = t.color; e.currentTarget.style.background = t.color + '12'; }}
+                onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--n-200)'; e.currentTarget.style.background = 'var(--n-0)'; }}>
+                <span style={{ fontSize:22, lineHeight:1 }}>{t.icon}</span>
+                <div style={{ fontSize:12, fontWeight:600, color:'var(--n-800)', marginTop:2 }}>{t.label}</div>
+                <div style={{ fontSize:10.5, color:'var(--n-500)', lineHeight:1.4 }}>{FIELD_TYPE_DESCS[t.type]}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

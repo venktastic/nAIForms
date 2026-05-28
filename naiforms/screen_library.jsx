@@ -102,13 +102,13 @@ function ScreenLibrary({ onOpen, onNew }) {
 
   // ── create / duplicate ────────────────────────────────────────────────────
   function handleCreate() {
-    const defaultName = newType === 'statistics' ? 'Untitled Statistics Capture' : 'Untitled Inspection';
+    const defaultName = newType === 'statistics' ? 'Untitled Statistics Capture' : newType === 'audit' ? 'Untitled Audit' : 'Untitled Inspection';
     const name = newName.trim() || defaultName;
     setShowNewModal(false); setNewName(''); setNewType('statistics');
     onNew(name, newType);
   }
   function doDuplicate(f) {
-    const formType = f.type === 'Statistics' ? 'statistics' : 'inspection';
+    const formType = f.type === 'Statistics' ? 'statistics' : f.type === 'Audit' ? 'audit' : 'inspection';
     const copy = { ...f, id: f.id + '-C' + Date.now().toString().slice(-4),
       name: 'Copy of ' + f.name, status: 'draft', v: 'v0.1', updated: 'Just now' };
     setForms(fs => [copy, ...fs]);
@@ -323,6 +323,7 @@ function ScreenLibrary({ onOpen, onNew }) {
       <div style={{ padding:'10px 28px 0', borderBottom:'1px solid var(--n-100)', display:'flex', gap:0 }}>
         {[
           { key:'Inspection', label:'Inspection',         count: forms.filter(f=>f.type==='Inspection').length },
+          { key:'Audit',      label:'Audit',              count: forms.filter(f=>f.type==='Audit').length },
           { key:'Statistics', label:'Statistics Capture', count: forms.filter(f=>f.type==='Statistics').length },
         ].map(tab => (
           <button key={tab.key} onClick={() => setTypeFilter(tab.key)}
@@ -428,9 +429,10 @@ function ScreenLibrary({ onOpen, onNew }) {
           <><Btn onClick={() => setShowNewModal(false)}>Cancel</Btn><Btn variant="primary" onClick={handleCreate}>Create</Btn></>
         }>
           <label className="label" style={{ marginBottom:8 }}>Workflow type</label>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:16 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:16 }}>
             {[
               { key:'inspection', label:'Inspection',         icon:'✓', color:'#6366f1', desc:'Checklists, yes/no, ratings' },
+              { key:'audit',      label:'Audit',              icon:'☑', color:'#0284c7', desc:'Safety audits & compliance' },
               { key:'statistics', label:'Statistics Capture', icon:'#', color:'#10b981', desc:'KPIs, manhours, incident rates' },
             ].map(t => (
               <button key={t.key} onClick={() => setNewType(t.key)}
@@ -444,7 +446,7 @@ function ScreenLibrary({ onOpen, onNew }) {
           </div>
           <label className="label">Workflow name</label>
           <input className="input" autoFocus value={newName} onChange={e => setNewName(e.target.value)}
-            placeholder={newType === 'statistics' ? 'e.g. Weekly KPI Capture' : 'e.g. Daily Site Inspection'}
+            placeholder={newType === 'statistics' ? 'e.g. Weekly KPI Capture' : newType === 'audit' ? 'e.g. Monthly Safety Audit' : 'e.g. Daily Site Inspection'}
             onKeyDown={e => { if (e.key==='Enter') handleCreate(); if (e.key==='Escape') setShowNewModal(false); }}/>
         </Modal>
       )}

@@ -7,7 +7,7 @@ function App() {
   const [toast, setToast]   = useState(null);
 
   function openForm(f) {
-    const formType = f.type === 'Statistics' ? 'statistics' : 'inspection';
+    const formType = f.type === 'Statistics' ? 'statistics' : f.type === 'Audit' ? 'audit' : 'inspection';
     setForm({ id: f.id, name: f.name, formType, status: f.status, sections: [{ id: 's0', title: 'Section 1', fields: [] }] });
     setScreen('form');
   }
