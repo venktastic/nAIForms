@@ -19,6 +19,24 @@ function normalizeOpt(o) {
 const INSP_TYPES  = FIELD_TYPES.filter(t => ['yes-no-na','single-select','number','text','long-text','date-time','photo','location'].includes(t.type));
 const STATS_TYPES = FIELD_TYPES.filter(t => ['number','text'].includes(t.type));
 
+const OPTION_COLORS = [
+  'rgba(22,166,77,1)',
+  'rgba(142,217,115,1)',
+  'rgba(255,255,255,1)',
+  'rgba(255,252,56,1)',
+  'rgba(253,0,19,1)',
+  'rgba(0,112,192,1)',
+];
+function rgbaToHex(c) {
+  const m = (c||'').match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (!m) return '#ffffff';
+  return '#' + [m[1],m[2],m[3]].map(n => parseInt(n).toString(16).padStart(2,'0')).join('');
+}
+function hexToRgba(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},1)`;
+}
+
 function FormBuilder({ form, onBack, onPublish }) {
   const blank = { id: 's0', title: 'Section 1', fields: [] };
   const [data, setData]              = useState(form || { id: 'new-' + Date.now(), name: 'Untitled Form', formType: 'inspection', sections: [blank] });
@@ -513,6 +531,7 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
   const [savedToLib, setSavedToLib]         = useState(false);
   const [labelTouched, setLabelTouched]     = useState(false);
   const [formulaTouched, setFormulaTouched] = useState(false);
+  const [colorPickerOpen, setColorPickerOpen] = useState(null); // null | option index
   const ft = FIELD_TYPES.find(t => t.type === field.fieldType) || FIELD_TYPES[0];
   const isSystem     = field.source === 'system';
   const isMasterRef  = !isSystem && !!field.fromMaster;
@@ -701,16 +720,51 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
             </div>
           )}
 
-          {/* Single Select — options with weight + NCR toggle */}
+          {/* Single Select — options with colour, weight + NCR toggle */}
           {field.fieldType === 'single-select' && isInspection && (
             <div style={{ marginBottom:12 }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
                 <label className="label" style={{ margin:0 }}>Options & Scoring</label>
-                <div style={{ fontSize:11, color:'var(--n-400)' }}>Label · Weight · ⚠</div>
+                <div style={{ fontSize:11, color:'var(--n-400)' }}>Colour · Label · Weight · ⚠</div>
               </div>
               {opts.map((opt, oi) => (
-                <div key={oi} style={{ display:'flex', gap:6, alignItems:'center', marginBottom:4 }}>
-                  <div style={{ width:12, height:12, borderRadius:'50%', border:'1.5px solid var(--n-300)', flexShrink:0 }}/>
+                <div key={oi} style={{ display:'flex', gap:6, alignItems:'center', marginBottom:4, position:'relative' }}>
+
+                  {/* Colour swatch */}
+                  {colorPickerOpen === oi && (
+                    <div style={{ position:'fixed', inset:0, zIndex:99 }} onClick={() => setColorPickerOpen(null)}/>
+                  )}
+                  <div style={{ position:'relative', flexShrink:0 }}>
+                    <button title="Pick colour" onClick={() => setColorPickerOpen(colorPickerOpen===oi ? null : oi)}
+                      style={{ width:24, height:24, borderRadius:'50%', cursor:'pointer', flexShrink:0,
+                        border: opt.color ? '2px solid rgba(0,0,0,0.15)' : '1.5px dashed var(--n-400)',
+                        background: opt.color || 'transparent',
+                        backgroundImage: opt.color ? 'none' : 'repeating-linear-gradient(45deg,var(--n-200) 0,var(--n-200) 2px,transparent 0,transparent 50%)',
+                        backgroundSize:'6px 6px' }}/>
+                    {colorPickerOpen === oi && (
+                      <div style={{ position:'absolute', zIndex:100, top:30, left:0, background:'var(--n-0)',
+                        border:'1px solid var(--n-200)', borderRadius:10, padding:10,
+                        boxShadow:'0 4px 16px rgba(0,0,0,0.14)', width:188 }}>
+                        <div style={{ fontSize:10, fontWeight:700, color:'var(--n-500)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:6 }}>Preset</div>
+                        <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginBottom:8 }}>
+                          <button title="No colour" onClick={() => { onUpdate({ options: opts.map((o,i) => i===oi?{...o,color:null}:o) }); setColorPickerOpen(null); }}
+                            style={{ width:26, height:26, borderRadius:'50%', border:`2px solid ${!opt.color?'var(--brand-400)':'var(--n-200)'}`,
+                              background:'white', cursor:'pointer', fontSize:12, color:'var(--n-400)', lineHeight:'22px' }}>∅</button>
+                          {OPTION_COLORS.map(c => (
+                            <button key={c} title={c} onClick={() => { onUpdate({ options: opts.map((o,i) => i===oi?{...o,color:c}:o) }); setColorPickerOpen(null); }}
+                              style={{ width:26, height:26, borderRadius:'50%', cursor:'pointer',
+                                border:`2px solid ${opt.color===c?'var(--brand-400)':'rgba(0,0,0,0.12)'}`,
+                                background:c, outline: c==='rgba(255,255,255,1)'?'1px solid var(--n-200)':undefined }}/>
+                          ))}
+                        </div>
+                        <div style={{ fontSize:10, fontWeight:700, color:'var(--n-500)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:5 }}>Custom</div>
+                        <input type="color" value={rgbaToHex(opt.color)}
+                          onChange={e => onUpdate({ options: opts.map((o,i) => i===oi?{...o,color:hexToRgba(e.target.value)}:o) })}
+                          style={{ width:'100%', height:32, border:'1px solid var(--n-200)', borderRadius:6, cursor:'pointer', padding:2 }}/>
+                      </div>
+                    )}
+                  </div>
+
                   <input className="input" style={{ flex:1, fontSize:12 }} placeholder="Option label" value={opt.label}
                     onChange={e => {
                       const next = opts.map((o,i) => i===oi ? { ...o, label: e.target.value } : o);
@@ -992,8 +1046,13 @@ function FieldPreview({ field, questionNumber }) {
       {field.fieldType === 'single-select' && (
         <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
           {(opts.length ? opts : [{ label:'Option 1', weight:0, triggersNCR:false }]).map((opt, i) => (
-            <div key={i} style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 8px', border:'1px solid var(--n-200)', borderRadius:6, fontSize:12, color:'var(--n-600)' }}>
-              <div style={{ width:11, height:11, borderRadius:'50%', border:'1.5px solid var(--n-300)', flexShrink:0 }}/>
+            <div key={i} style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 8px',
+              border:`1px solid ${opt.color ? opt.color : 'var(--n-200)'}`,
+              borderRadius:6, fontSize:12, color:'var(--n-600)',
+              background: opt.color ? opt.color.replace(',1)',',.08)').replace(',1.0)',',.08)') : 'transparent' }}>
+              <div style={{ width:11, height:11, borderRadius:'50%', flexShrink:0,
+                background: opt.color || 'transparent',
+                border: opt.color ? '1px solid rgba(0,0,0,0.15)' : '1.5px solid var(--n-300)' }}/>
               <span style={{ flex:1 }}>{opt.label}</span>
               {opt.triggersNCR && <span style={{ fontSize:9, color:'#dc2626', fontWeight:700 }}>⚠</span>}
             </div>
@@ -1112,13 +1171,18 @@ function FillQuestion({ field, questionNumber, answer, onAnswer, hasError, comme
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {opts.map((opt, i) => {
             const sel = answer === opt.label;
+            const c   = opt.color || null;
+            const dotColor   = sel ? (c || '#111') : (c || '#d1d5db');
+            const dotBg      = sel ? (c || '#111') : 'transparent';
+            const btnBorder  = sel ? (c || '#111') : (c ? c.replace(',1)',',.35)').replace(',1.0)',',.35)') : '#e5e7eb');
+            const btnBg      = sel ? (c ? c.replace(',1)',',.18)').replace(',1.0)',',.18)') : '#f8f9fa') : '#fafafa';
             return (
               <button key={i} onClick={() => onAnswer(sel ? null : opt.label)}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px',
-                  border: `1.5px solid ${sel ? '#111' : '#e5e7eb'}`,
-                  borderRadius: 11, background: sel ? '#f8f9fa' : '#fafafa', cursor: 'pointer', textAlign: 'left' }}>
-                <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${sel ? '#111' : '#d1d5db'}`,
-                  background: sel ? '#111' : 'transparent', flexShrink: 0,
+                  border: `1.5px solid ${btnBorder}`,
+                  borderRadius: 11, background: btnBg, cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${dotColor}`,
+                  background: dotBg, flexShrink: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {sel && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }}/>}
                 </div>
