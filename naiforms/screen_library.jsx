@@ -130,9 +130,9 @@ function ScreenLibrary({ onOpen, onNew }) {
 
     const CONFIRM_CONFIGS = {
       deactivate: {
-        title: 'Deactivate Form?',
-        body: 'This will disable the form across all assigned projects. Users will no longer be able to submit this form.',
-        cta: 'Deactivate Form',
+        title: 'Deactivate Workflow?',
+        body: 'This will disable the workflow across all assigned projects. Users will no longer be able to submit this workflow.',
+        cta: 'Deactivate Workflow',
         danger: true,
         onConfirm: () => {
           setForms(fs => fs.map(f => f.id !== mf.id ? f : { ...f, status: 'deactivated' }));
@@ -140,9 +140,9 @@ function ScreenLibrary({ onOpen, onNew }) {
         },
       },
       activate: {
-        title: 'Activate Form?',
-        body: 'This will make the form available again for its assigned projects.',
-        cta: 'Activate Form',
+        title: 'Activate Workflow?',
+        body: 'This will make the workflow available again for its assigned projects.',
+        cta: 'Activate Workflow',
         danger: false,
         onConfirm: () => {
           setForms(fs => fs.map(f => f.id !== mf.id ? f : { ...f, status: 'published' }));
@@ -151,14 +151,14 @@ function ScreenLibrary({ onOpen, onNew }) {
       },
       remove: {
         title: 'Remove Project Access?',
-        body: `This form will no longer be available for ${confirmModal?.projName}. Existing submissions should remain unaffected.`,
+        body: `This workflow will no longer be available for ${confirmModal?.projName}. Existing submissions should remain unaffected.`,
         cta: 'Remove Project',
         danger: true,
         onConfirm: () => { mutateRemove(mf.id, confirmModal.projId); setConfirmModal(null); },
       },
       assign: {
         title: 'Assign Form to Project?',
-        body: `This form will become available for users in ${confirmModal?.projName}.`,
+        body: `This workflow will become available for users in ${confirmModal?.projName}.`,
         cta: 'Assign Project',
         danger: false,
         onConfirm: () => { mutateAssign(mf.id, confirmModal.projId); setConfirmModal(null); },
@@ -195,7 +195,7 @@ function ScreenLibrary({ onOpen, onNew }) {
             </div>
             {mf.status === 'published' && (
               <Btn style={{ color:'var(--danger)' }} onClick={() => setConfirmModal({ type:'deactivate' })}>
-                Deactivate Form
+                Deactivate Workflow
               </Btn>
             )}
             {mf.status === 'deactivated' && (
@@ -311,7 +311,7 @@ function ScreenLibrary({ onOpen, onNew }) {
           <div style={{ fontSize:13, color:'var(--n-500)', marginTop:3 }}>Inspections and statistics captures for your organisation</div>
         </div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-          <input className="input" style={{ width:240 }} placeholder="🔍 Search forms…"
+          <input className="input" style={{ width:240 }} placeholder="🔍 Search workflows…"
             value={q} onChange={e => setQ(e.target.value)}/>
           <Btn variant="primary" onClick={() => { setNewName(''); setNewType('statistics'); setShowNewModal(true); }}>
             + Create New Workflow
@@ -455,7 +455,7 @@ function ScreenLibrary({ onOpen, onNew }) {
       {publishForm && (() => {
         const allProjects = getAllProjects();
         return (
-          <Modal title="Publish Form" onClose={closePublish} actions={
+          <Modal title="Publish Workflow" onClose={closePublish} actions={
             <>
               <Btn onClick={closePublish}>Cancel</Btn>
               <Btn variant="primary" disabled={publishSel.size === 0} onClick={doPublish}>
@@ -464,7 +464,7 @@ function ScreenLibrary({ onOpen, onNew }) {
             </>
           }>
             <p style={{ marginTop:0, fontSize:13, color:'var(--n-600)' }}>
-              Select the projects where this form will be available. At least one project is required.
+              Select the projects where this workflow will be available. At least one project is required.
             </p>
             <div style={{ display:'flex', flexDirection:'column', gap:5, maxHeight:280, overflowY:'auto' }}>
               {allProjects.map(proj => (
