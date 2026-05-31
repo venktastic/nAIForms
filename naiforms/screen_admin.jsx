@@ -64,7 +64,7 @@ function ScreenAdmin() {
 
           {/* Tab bar */}
           <div style={{ display:'flex', borderBottom: '2px solid var(--n-200)', marginBottom: 20 }}>
-            {[['forms','Forms'],['schedule','Schedule & Assign']].map(([id, label]) => (
+            {[['forms','Workflows'],['schedule','Schedule & Assign']].map(([id, label]) => (
               <button key={id} onClick={() => setDetailTab(id)} style={{
                 padding: '8px 16px', background: 'none', border: 'none', cursor: 'pointer',
                 borderBottom: detailTab === id ? '2px solid var(--brand-600)' : '2px solid transparent',
@@ -139,7 +139,7 @@ function ScreenAdmin() {
             }, []);
             if (!assignedForms.length) return (
               <div className="card" style={{ padding:'40px 24px', textAlign:'center', color:'var(--n-400)', fontSize:13 }}>
-                No workflows assigned yet — go to the <strong>Forms</strong> tab and assign at least one workflow first.
+                No workflows assigned yet — go to the <strong>Workflows</strong> tab and assign at least one workflow first.
               </div>
             );
             return <StatsScheduleScreen forms={assignedForms} embedded={true} onBack={null} onPublish={null}/>;

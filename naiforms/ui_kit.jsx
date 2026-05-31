@@ -18,7 +18,7 @@ function Sidebar({ active, onNav }) {
       <button className={"sidebar-item " + (active==='projects'?'active':'')} onClick={()=>onNav('projects')}><span className="icon">▢</span> Project Management</button>
 
       <div className="sidebar-section">Masters</div>
-      <button className={"sidebar-item " + (active==='library'?'active':'')} onClick={()=>onNav('library')}><span className="icon">☑</span> Forms</button>
+      <button className={"sidebar-item " + (active==='library'?'active':'')} onClick={()=>onNav('library')}><span className="icon">☑</span> Workflows</button>
       <button className={"sidebar-item " + (active==='observation'?'active':'')} onClick={()=>onNav('observation')}><span className="icon">◎</span> Observation Workflow</button>
 
       <div style={{ marginTop:'auto', padding: '16px 10px', fontSize: 11, color: 'var(--n-500)' }}>
@@ -81,8 +81,8 @@ function TopBar({ crumbs = [], actions }) {
   );
 }
 
-function Badge({ children, tone = 'neutral', dot }) {
-  return <span className={"badge " + tone + (dot ? ' dot' : '')}>{children}</span>;
+function Badge({ children, tone = 'neutral', dot, title }) {
+  return <span className={"badge " + tone + (dot ? ' dot' : '')} title={title}>{children}</span>;
 }
 
 function Btn({ children, variant = '', size = '', onClick, disabled, style }) {

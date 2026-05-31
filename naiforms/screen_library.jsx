@@ -307,14 +307,14 @@ function ScreenLibrary({ onOpen, onNew }) {
       {/* Header */}
       <div style={{ padding:'20px 28px 16px', borderBottom:'1px solid var(--n-100)', display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
         <div>
-          <h1 style={{ margin:0, fontSize:20, fontWeight:700 }}>Forms</h1>
+          <h1 style={{ margin:0, fontSize:20, fontWeight:700 }}>Workflows</h1>
           <div style={{ fontSize:13, color:'var(--n-500)', marginTop:3 }}>Inspections and statistics captures for your organisation</div>
         </div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
           <input className="input" style={{ width:240 }} placeholder="🔍 Search forms…"
             value={q} onChange={e => setQ(e.target.value)}/>
           <Btn variant="primary" onClick={() => { setNewName(''); setNewType('statistics'); setShowNewModal(true); }}>
-            + Create New Form
+            + Create New Workflow
           </Btn>
         </div>
       </div>
@@ -372,15 +372,15 @@ function ScreenLibrary({ onOpen, onNew }) {
                         onMouseOut={e => e.currentTarget.style.color='var(--n-300)'}>⎘</button>
                     </div>
                   </td>
-                  <td style={tdS()}><Badge tone={typeColor(f.type)}>{f.type}</Badge></td>
+                  <td style={tdS()}><Badge tone={typeColor(f.type)} title={f.type==='Statistics'?'Statistics capture workflow for periodic data collection.':f.type==='Audit'?'Audit workflow with scoring and NCR triggers.':'Inspection workflow with scoring and NCR triggers.'}>{f.type}</Badge></td>
                   <td style={tdS({ color:'var(--n-600)' })}>
                     <div style={{ fontSize:12, fontWeight:500 }}>{f.sections} section{f.sections!==1?'s':''}</div>
                     <div style={{ fontSize:11.5, color:'var(--n-400)', marginTop:2 }}>{f.qs} {f.type==='Statistics'?'fields':'questions'}</div>
                   </td>
                   <td style={tdS()}>
-                    {f.status === 'published'   && <Badge tone="success" dot>Published</Badge>}
-                    {f.status === 'draft'       && <Badge tone="warning" dot>Draft</Badge>}
-                    {f.status === 'deactivated' && <Badge tone="danger"  dot>Deactivated</Badge>}
+                    {f.status === 'published'   && <Badge tone="success" dot title="Live. Project Admins can schedule this workflow.">Published</Badge>}
+                    {f.status === 'draft'       && <Badge tone="warning" dot title="This workflow has not been published yet. It is not available for scheduling.">Draft</Badge>}
+                    {f.status === 'deactivated' && <Badge tone="danger"  dot title="This workflow has been deactivated and is no longer available on any project.">Deactivated</Badge>}
                   </td>
                   <td style={tdS({ color:'var(--n-700)' })}>{f.owner}</td>
                   <td style={tdS({ color:'var(--n-500)', whiteSpace:'nowrap', fontSize:12 })}>{f.updated}</td>
@@ -411,7 +411,7 @@ function ScreenLibrary({ onOpen, onNew }) {
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <div style={{ padding:'48px 24px', textAlign:'center', color:'var(--n-400)', fontSize:13 }}>No forms found</div>
+          <div style={{ padding:'48px 24px', textAlign:'center', color:'var(--n-400)', fontSize:13 }}>No workflows found</div>
         )}
       </div>
 
@@ -425,7 +425,7 @@ function ScreenLibrary({ onOpen, onNew }) {
 
       {/* Create new form modal */}
       {showNewModal && (
-        <Modal title="Create new form" onClose={() => setShowNewModal(false)} actions={
+        <Modal title="Create new workflow" onClose={() => setShowNewModal(false)} actions={
           <><Btn onClick={() => setShowNewModal(false)}>Cancel</Btn><Btn variant="primary" onClick={handleCreate}>Create</Btn></>
         }>
           <label className="label" style={{ marginBottom:8 }}>Workflow type</label>

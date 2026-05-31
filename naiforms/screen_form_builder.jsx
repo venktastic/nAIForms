@@ -159,7 +159,7 @@ function FormBuilder({ form, onBack, onPublish }) {
             <Btn variant="ghost" onClick={onBack}>← Library</Btn>
             {isInspection && <Btn onClick={() => setShowFill(true)}>▶ Try form</Btn>}
             <Btn>Save draft</Btn>
-            <Btn variant="primary" onClick={() => setShowPublish(true)}>Publish →</Btn>
+            <Btn variant="primary" title="Once published, existing fields cannot be edited or deleted." onClick={() => setShowPublish(true)}>Publish →</Btn>
           </>
         )
       }/>
@@ -329,6 +329,11 @@ function FormBuilder({ form, onBack, onPublish }) {
                     </div>
                   )}
 
+                  {isInspection && !isViewMode && section.fields.length === 0 && (
+                    <div style={{ textAlign:'center', fontSize:11.5, color:'var(--n-400)', padding:'8px 0 6px' }}>
+                      Click '+ Add Field' or drag a type from the left panel.
+                    </div>
+                  )}
                   {isInspection && !isViewMode && (
                     <button onClick={e => { e.stopPropagation(); setAddFieldModal(section.id); }}
                       style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, width:'100%',
@@ -373,7 +378,7 @@ function FormBuilder({ form, onBack, onPublish }) {
             <div style={{ padding:'12px 14px' }}>
               <div style={{ fontWeight:700, fontSize:15, marginBottom:4 }}>{data.name || 'Untitled Form'}</div>
               {isInspection && data.sections.some(s => sectionMaxScore(s) > 0) && (
-                <div style={{ fontSize:11, color:'var(--n-500)', marginBottom:12, padding:'4px 8px', background:'var(--n-50)', borderRadius:4 }}>
+                <div title="Average of all section scores." style={{ fontSize:11, color:'var(--n-500)', marginBottom:12, padding:'4px 8px', background:'var(--n-50)', borderRadius:4 }}>
                   Overall Score: <strong>—</strong>
                   <span style={{ marginLeft:8, color:'var(--n-400)' }}>
                     Max: {data.sections.reduce((t, s) => t + sectionMaxScore(s), 0).toFixed(1)} pts
@@ -390,7 +395,7 @@ function FormBuilder({ form, onBack, onPublish }) {
                         {s.title}
                       </div>
                       {isInspection && maxScore > 0 && (
-                        <div style={{ fontSize:10, color:'var(--n-400)', fontWeight:500 }}>
+                        <div title="Score = sum of selected weights ÷ max possible weights in this section." style={{ fontSize:10, color:'var(--n-400)', fontWeight:500 }}>
                           — / {maxScore.toFixed(1)} pts
                         </div>
                       )}
@@ -702,13 +707,14 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
                     </div>
                     <div style={{ flex:1 }}>
                       <input type="number" className="input" style={{ fontSize:12, width:72 }}
+                        title="Score awarded when this option is selected. Higher = better."
                         step="1" value={opt.weight ?? 0}
                         onChange={e => {
                           const next = opts.map((o,i) => i===oi ? { ...o, weight: parseFloat(e.target.value)||0 } : o);
                           onUpdate({ options: next });
                         }}/>
                     </div>
-                    <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none', whiteSpace:'nowrap' }}>
+                    <label title="When selected, this response will trigger a Non-Conformance Report." style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none', whiteSpace:'nowrap' }}>
                       <Switch on={!!opt.triggersNCR} onChange={v => {
                         const next = opts.map((o,i) => i===oi ? { ...o, triggersNCR: v } : o);
                         onUpdate({ options: next });
@@ -771,13 +777,14 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
                       onUpdate({ options: next });
                     }}/>
                   <input type="number" className="input" style={{ width:64, fontSize:12 }}
+                    title="Score awarded when this option is selected. Higher = better."
                     step="1" placeholder="Wt" value={opt.weight ?? 0}
                     onChange={e => {
                       const next = opts.map((o,i) => i===oi ? { ...o, weight: parseFloat(e.target.value)||0 } : o);
                       onUpdate({ options: next });
                     }}/>
                   <label style={{ display:'flex', alignItems:'center', gap:3, fontSize:12, userSelect:'none', flexShrink:0 }}
-                    title="Triggers NCR">
+                    title="When selected, this response will trigger a Non-Conformance Report.">
                     <Switch on={!!opt.triggersNCR} onChange={v => {
                       const next = opts.map((o,i) => i===oi ? { ...o, triggersNCR: v } : o);
                       onUpdate({ options: next });
@@ -959,12 +966,12 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
           {!isAttachment && (
             <div style={{ display:'flex', gap:20, alignItems:'center', flexWrap:'wrap', paddingTop:10, borderTop:'1px solid var(--n-100)' }}>
               {isInspection && (
-                <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
+                <label title="If on, this question must be answered before the form can be submitted." style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
                   <Switch on={!!field.required} onChange={v => onUpdate({ required: v })}/> Required
                 </label>
               )}
               {isInspection && field.fieldType !== 'photo' && (
-                <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
+                <label title="Let the user attach a photo or video alongside their answer." style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
                   <Switch on={!!field.allowPhotoAttachment} onChange={v => onUpdate({ allowPhotoAttachment: v })}/> 📷 Allow photo/video attachment
                 </label>
               )}
@@ -1254,7 +1261,7 @@ function FillQuestion({ field, questionNumber, answer, onAnswer, hasError, comme
       {field.allowPhotoAttachment && field.fieldType !== 'photo' && (
         <div style={{ marginTop: 10, padding: '8px 12px', border: '1px dashed #d1d5db', borderRadius: 10,
           fontSize: 12, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 6 }}>
-          📷 <span>Add photo / video (optional)</span>
+          📷 <span>Optional — attach photo or video evidence</span>
         </div>
       )}
       {field.allowComment && (
@@ -1470,6 +1477,7 @@ function InspectionFillScreen({ form, onClose }) {
         {/* Bulk fill bar */}
         {showBulkBar && (
           <div style={{ background: '#fff', padding: '10px 16px 8px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
+            <div style={{ fontSize: 10.5, color: '#9ca3af', marginBottom: 6 }}>Apply one answer to all questions in this section</div>
 
             {/* Scope tabs — only show eligible scopes */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>

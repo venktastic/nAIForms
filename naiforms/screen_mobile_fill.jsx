@@ -353,7 +353,7 @@ function ScheduleScreen({ form, onBack, onPublish }) {
 
   return (
     <>
-      <TopBar crumbs={['Tools','Forms Library', form?.name || 'Form', 'Schedule']} actions={
+      <TopBar crumbs={['Tools','Workflows Library', form?.name || 'Form', 'Schedule']} actions={
         <>
           <Btn variant="ghost" onClick={onBack}>← Builder</Btn>
           <Btn variant="primary" onClick={onPublish}>Publish schedule</Btn>

@@ -36,7 +36,7 @@ function Dashboard() {
       {/* Row 1 — summary tiles */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
         {[
-          { n: '24',  label: 'Total forms',          sub: 'in library' },
+          { n: '24',  label: 'Total workflows',        sub: 'in library' },
           { n: '18',  label: 'Published',             sub: 'active in library' },
           { n: '342', label: 'Submissions',           sub: 'last 30 days' },
           { n: '91%', label: 'On-time rate',          sub: 'across all projects' },
@@ -62,7 +62,7 @@ function Dashboard() {
             <thead>
               <tr>
                 <th>Project</th>
-                <th style={{ textAlign:'center' }}>Forms</th>
+                <th style={{ textAlign:'center' }}>Workflows</th>
                 <th style={{ textAlign:'center' }}>On-time</th>
                 <th style={{ textAlign:'center' }}>Overdue</th>
               </tr>
