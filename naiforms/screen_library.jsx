@@ -167,8 +167,8 @@ function ScreenLibrary({ onOpen, onNew }) {
 
     return (
       <>
-        <TopBar crumbs={['Forms', mf.name]} actions={
-          <Btn variant="ghost" onClick={() => { setManageFormId(null); setConfirmModal(null); }}>← Forms</Btn>
+        <TopBar crumbs={['Workflows', mf.name]} actions={
+          <Btn variant="ghost" onClick={() => { setManageFormId(null); setConfirmModal(null); }}>← Workflows</Btn>
         }/>
         <div className="page">
           <div className="page-head">
