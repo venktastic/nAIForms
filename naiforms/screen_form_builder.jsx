@@ -70,15 +70,19 @@ function FormBuilder({ form, onBack, onPublish }) {
     });
   }
   function addBlankField(sid, type, overrides) {
-    const base = { id: 'f' + Date.now(), name: '', fieldType: type, required: false, showOnApp: true, ...overrides };
+    const base = { id: 'f' + Date.now(), name: '', fieldType: type, required: true, allowPhotoAttachment: true, allowComment: true, showOnApp: true, ...overrides };
     if (type === 'yes-no-na') base.options = [
-      { label: 'Yes', weight: 1.0, triggersNCR: false },
-      { label: 'No',  weight: 0.0, triggersNCR: false },
-      { label: 'NA',  weight: 0.0, triggersNCR: false },
+      { label: 'Yes', weight: 1,  triggersNCR: false },
+      { label: 'No',  weight: 0,  triggersNCR: false },
+      { label: 'NA',  weight: -1, triggersNCR: false },
     ];
     if (type === 'single-select') base.options = [
-      { label: 'Option 1', weight: 0.0, triggersNCR: false },
-      { label: 'Option 2', weight: 0.0, triggersNCR: false },
+      { label: 'Good Practice',         weight: 1,  triggersNCR: false },
+      { label: 'Compliant',             weight: 1,  triggersNCR: false },
+      { label: 'Observation',           weight: 1,  triggersNCR: false },
+      { label: 'Minor Non Conformance', weight: 1,  triggersNCR: false },
+      { label: 'Major Non Conformance', weight: 1,  triggersNCR: false },
+      { label: 'N/A',                   weight: -1, triggersNCR: false },
     ];
     if (type === 'number')     base.unit = '';
     if (type === 'text')       base.placeholder = '';
@@ -128,8 +132,9 @@ function FormBuilder({ form, onBack, onPublish }) {
     section.fields.forEach(f => {
       const opts = (f.options || []).map(normalizeOpt);
       if (!opts.length) return;
-      const nonNA = opts.filter(o => o.label !== 'NA');
-      const m = Math.max(0, ...nonNA.map(o => o.weight || 0));
+      const eligible = opts.filter(o => (o.weight ?? 0) !== -1);
+      if (!eligible.length) return;
+      const m = Math.max(0, ...eligible.map(o => o.weight || 0));
       max += m;
     });
     return Math.round(max * 100) / 100;
@@ -380,9 +385,6 @@ function FormBuilder({ form, onBack, onPublish }) {
               {isInspection && data.sections.some(s => sectionMaxScore(s) > 0) && (
                 <div title="Average of all section scores." style={{ fontSize:11, color:'var(--n-500)', marginBottom:12, padding:'4px 8px', background:'var(--n-50)', borderRadius:4 }}>
                   Overall Score: <strong>—</strong>
-                  <span style={{ marginLeft:8, color:'var(--n-400)' }}>
-                    Max: {data.sections.reduce((t, s) => t + sectionMaxScore(s), 0).toFixed(1)} pts
-                  </span>
                 </div>
               )}
               {!isInspection && <div style={{ marginBottom:14 }}/>}
@@ -537,6 +539,12 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
   const [labelTouched, setLabelTouched]     = useState(false);
   const [formulaTouched, setFormulaTouched] = useState(false);
   const [colorPickerOpen, setColorPickerOpen] = useState(null); // null | option index
+  const [weightErrors, setWeightErrors]     = useState({});
+
+  function checkWeight(key, val) {
+    const n = parseFloat(val);
+    setWeightErrors(e => ({ ...e, [key]: !isNaN(n) && n < 0 && n !== -1 }));
+  }
   const ft = FIELD_TYPES.find(t => t.type === field.fieldType) || FIELD_TYPES[0];
   const isSystem     = field.source === 'system';
   const isMasterRef  = !isSystem && !!field.fromMaster;
@@ -708,11 +716,16 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
                     <div style={{ flex:1 }}>
                       <input type="number" className="input" style={{ fontSize:12, width:72 }}
                         title="Score awarded when this option is selected. Higher = better."
-                        step="1" value={opt.weight ?? 0}
+                        step="any" value={opt.weight ?? 0}
                         onChange={e => {
                           const next = opts.map((o,i) => i===oi ? { ...o, weight: parseFloat(e.target.value)||0 } : o);
                           onUpdate({ options: next });
-                        }}/>
+                          setWeightErrors(er => ({ ...er, ['ynn_'+oi]: false }));
+                        }}
+                        onBlur={e => checkWeight('ynn_'+oi, e.target.value)}/>
+                      {weightErrors['ynn_'+oi] && (
+                        <div style={{ fontSize:10.5, color:'var(--danger)', marginTop:2 }}>Only -1 is allowed as a negative value.</div>
+                      )}
                     </div>
                     <label title="When selected, this response will trigger a Non-Conformance Report." style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none', whiteSpace:'nowrap' }}>
                       <Switch on={!!opt.triggersNCR} onChange={v => {
@@ -776,13 +789,20 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
                       const next = opts.map((o,i) => i===oi ? { ...o, label: e.target.value } : o);
                       onUpdate({ options: next });
                     }}/>
-                  <input type="number" className="input" style={{ width:64, fontSize:12 }}
-                    title="Score awarded when this option is selected. Higher = better."
-                    step="1" placeholder="Wt" value={opt.weight ?? 0}
-                    onChange={e => {
-                      const next = opts.map((o,i) => i===oi ? { ...o, weight: parseFloat(e.target.value)||0 } : o);
-                      onUpdate({ options: next });
-                    }}/>
+                  <div style={{ flexShrink:0 }}>
+                    <input type="number" className="input" style={{ width:64, fontSize:12 }}
+                      title="Score awarded when this option is selected. Higher = better."
+                      step="any" placeholder="Wt" value={opt.weight ?? 0}
+                      onChange={e => {
+                        const next = opts.map((o,i) => i===oi ? { ...o, weight: parseFloat(e.target.value)||0 } : o);
+                        onUpdate({ options: next });
+                        setWeightErrors(er => ({ ...er, ['ss_'+oi]: false }));
+                      }}
+                      onBlur={e => checkWeight('ss_'+oi, e.target.value)}/>
+                    {weightErrors['ss_'+oi] && (
+                      <div style={{ fontSize:10, color:'var(--danger)', marginTop:2, width:64 }}>Only -1 allowed as negative.</div>
+                    )}
+                  </div>
                   <label style={{ display:'flex', alignItems:'center', gap:3, fontSize:12, userSelect:'none', flexShrink:0 }}
                     title="When selected, this response will trigger a Non-Conformance Report.">
                     <Switch on={!!opt.triggersNCR} onChange={v => {
@@ -971,8 +991,8 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
                 </label>
               )}
               {isInspection && field.fieldType !== 'photo' && (
-                <label title="Let the user attach a photo or video alongside their answer." style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
-                  <Switch on={!!field.allowPhotoAttachment} onChange={v => onUpdate({ allowPhotoAttachment: v })}/> 📷 Allow photo/video attachment
+                <label title="Let the user attach a photo alongside their answer." style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
+                  <Switch on={!!field.allowPhotoAttachment} onChange={v => onUpdate({ allowPhotoAttachment: v })}/> 📷 Allow photo attachment
                 </label>
               )}
               {isInspection && (
@@ -1282,7 +1302,6 @@ function InspectionFillScreen({ form, onClose }) {
   const [answers, setAnswers]       = useState({});
   const [errors, setErrors]         = useState({});
   const [submitted, setSubmitted]   = useState(false);
-  const [bulkScope, setBulkScope]   = useState('section');
 
   const sections = (form.sections || []).filter(s => s.fields.length > 0);
 
@@ -1291,17 +1310,16 @@ function InspectionFillScreen({ form, onClose }) {
     if (errors[fid]) setErrors(e => { const n = { ...e }; delete n[fid]; return n; });
   }
 
-  function bulkApply(value, fieldType, scope) {
-    const targetSections = scope === 'form' ? sections : [sections[sectionIdx]];
+  function bulkApply(value, fieldType) {
     const updates = {};
-    targetSections.forEach(sec => sec.fields.forEach(f => {
+    sections[sectionIdx].fields.forEach(f => {
       if (f.fieldType !== fieldType) return;
       if (fieldType === 'single-select') {
         const opts = (f.options || []).map(normalizeOpt);
         if (!opts.some(o => o.label === value)) return;
       }
       updates[f.id] = value;
-    }));
+    });
     setAnswers(a => ({ ...a, ...updates }));
     setErrors(e => { const n = { ...e }; Object.keys(updates).forEach(k => delete n[k]); return n; });
   }
@@ -1339,14 +1357,15 @@ function InspectionFillScreen({ form, onClose }) {
     let result = 0, total = 0, hasWeighted = false;
     fields.forEach(f => {
       const opts = (f.options || []).map(normalizeOpt);
-      const nonNA = opts.filter(o => o.label !== 'NA');
-      const maxW = nonNA.length ? Math.max(0, ...nonNA.map(o => o.weight || 0)) : 0;
+      const eligible = opts.filter(o => (o.weight ?? 0) !== -1);
+      const maxW = eligible.length ? Math.max(0, ...eligible.map(o => o.weight || 0)) : 0;
       if (maxW <= 0) return;
       const ans = answers[f.id];
-      if (ans === 'NA') return;
+      const chosen = ans ? opts.find(o => o.label === ans) : null;
+      if (chosen && (chosen.weight ?? 0) === -1) return; // excluded from score
       hasWeighted = true;
       total += maxW;
-      if (ans) { const chosen = opts.find(o => o.label === ans); if (chosen) result += chosen.weight || 0; }
+      if (chosen) result += chosen.weight || 0;
     });
     if (!hasWeighted || total === 0) return null;
     return Math.min(100, (result / total) * 100);
@@ -1356,13 +1375,14 @@ function InspectionFillScreen({ form, onClose }) {
     let result = 0, total = 0, has = false;
     sections.forEach(s => s.fields.forEach(f => {
       const opts = (f.options || []).map(normalizeOpt);
-      const nonNA = opts.filter(o => o.label !== 'NA');
-      const maxW = nonNA.length ? Math.max(0, ...nonNA.map(o => o.weight || 0)) : 0;
+      const eligible = opts.filter(o => (o.weight ?? 0) !== -1);
+      const maxW = eligible.length ? Math.max(0, ...eligible.map(o => o.weight || 0)) : 0;
       if (maxW <= 0) return;
       const ans = answers[f.id];
-      if (ans === 'NA') return;
+      const chosen = ans ? opts.find(o => o.label === ans) : null;
+      if (chosen && (chosen.weight ?? 0) === -1) return;
       has = true; total += maxW;
-      if (ans) { const chosen = opts.find(o => o.label === ans); if (chosen) result += chosen.weight || 0; }
+      if (chosen) result += chosen.weight || 0;
     }));
     if (!has || total === 0) return null;
     return Math.min(100, (result / total) * 100);
@@ -1416,19 +1436,9 @@ function InspectionFillScreen({ form, onClose }) {
     return (matching[0].options || []).map(normalizeOpt);
   }
 
-  const allFormFields = sections.flatMap(s => s.fields);
-  const secYNN  = uniformOpts(section.fields, 'yes-no-na');
-  const secSS   = uniformOpts(section.fields, 'single-select');
-  const secOK   = !!(secYNN || secSS);
-  const frmYNN  = uniformOpts(allFormFields, 'yes-no-na');
-  const frmSS   = uniformOpts(allFormFields, 'single-select');
-  const frmOK   = !!(frmYNN || frmSS);
-  const showBulkBar = secOK || frmOK;
-
-  // Auto-correct scope if the currently selected scope became ineligible
-  const effectiveScope = (bulkScope === 'form' && frmOK) ? 'form' : (secOK ? 'section' : 'form');
-  const activeYNN = effectiveScope === 'form' ? frmYNN : secYNN;
-  const activeSS  = effectiveScope === 'form' ? frmSS  : secSS;
+  const secYNN      = uniformOpts(section.fields, 'yes-no-na');
+  const secSS       = uniformOpts(section.fields, 'single-select');
+  const showBulkBar = !!(secYNN || secSS);
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,23,42,0.72)',
@@ -1474,38 +1484,16 @@ function InspectionFillScreen({ form, onClose }) {
           </div>
         </div>
 
-        {/* Bulk fill bar */}
+        {/* Bulk fill bar — section-level only */}
         {showBulkBar && (
           <div style={{ background: '#fff', padding: '10px 16px 8px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
             <div style={{ fontSize: 10.5, color: '#9ca3af', marginBottom: 6 }}>Apply one answer to all questions in this section</div>
 
-            {/* Scope tabs — only show eligible scopes */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', flexShrink: 0 }}>Fill all</span>
-              {secOK && frmOK ? (
-                <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: 8, padding: 2, gap: 2 }}>
-                  {[['section','Section'],['form','Entire form']].map(([val, lbl]) => (
-                    <button key={val} onClick={() => setBulkScope(val)}
-                      style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none',
-                        background: effectiveScope === val ? '#fff' : 'transparent',
-                        color: effectiveScope === val ? '#111' : '#9ca3af', cursor: 'pointer',
-                        boxShadow: effectiveScope === val ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}>
-                      {lbl}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <span style={{ fontSize: 11, color: '#6b7280', fontWeight: 500 }}>
-                  {frmOK ? 'entire form' : 'this section'}
-                </span>
-              )}
-            </div>
-
             {/* Yes/No/NA row */}
-            {activeYNN && (
-              <div style={{ display: 'flex', gap: 6, marginBottom: activeSS ? 6 : 0 }}>
+            {secYNN && (
+              <div style={{ display: 'flex', gap: 6, marginBottom: secSS ? 6 : 0 }}>
                 {[{l:'Yes',i:'✓',c:'#16a34a',bg:'#f0fdf4'},{l:'No',i:'✗',c:'#dc2626',bg:'#fef2f2'},{l:'NA',i:'NA',c:'#d97706',bg:'#fffbeb'}].map(opt => (
-                  <button key={opt.l} onClick={() => bulkApply(opt.l, 'yes-no-na', effectiveScope)}
+                  <button key={opt.l} onClick={() => bulkApply(opt.l, 'yes-no-na')}
                     style={{ flex: 1, padding: '7px 4px', border: `1.5px solid ${opt.c}35`,
                       borderRadius: 10, background: opt.bg, color: opt.c,
                       fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
@@ -1516,10 +1504,10 @@ function InspectionFillScreen({ form, onClose }) {
             )}
 
             {/* Single Select row */}
-            {activeSS && (
+            {secSS && (
               <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                {activeSS.map(opt => (
-                  <button key={opt.label} onClick={() => bulkApply(opt.label, 'single-select', effectiveScope)}
+                {secSS.map(opt => (
+                  <button key={opt.label} onClick={() => bulkApply(opt.label, 'single-select')}
                     style={{ padding: '4px 11px', border: '1.5px solid #e5e7eb', borderRadius: 20,
                       background: '#f9fafb', color: '#374151', fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}>
                     {opt.label}
