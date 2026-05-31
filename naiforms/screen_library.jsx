@@ -157,7 +157,7 @@ function ScreenLibrary({ onOpen, onNew }) {
         onConfirm: () => { mutateRemove(mf.id, confirmModal.projId); setConfirmModal(null); },
       },
       assign: {
-        title: 'Assign Form to Project?',
+        title: 'Assign Workflow to Project?',
         body: `This workflow will become available for users in ${confirmModal?.projName}.`,
         cta: 'Assign Project',
         danger: false,
@@ -201,7 +201,7 @@ function ScreenLibrary({ onOpen, onNew }) {
             {mf.status === 'deactivated' && (
               <Btn variant="primary" style={{ background:'var(--success)', borderColor:'var(--success)' }}
                 onClick={() => setConfirmModal({ type:'activate' })}>
-                Activate Form
+                Activate Workflow
               </Btn>
             )}
           </div>
