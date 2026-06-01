@@ -77,12 +77,12 @@ function FormBuilder({ form, onBack, onPublish }) {
       { label: 'NA',  weight: -1, triggersNCR: false },
     ];
     if (type === 'single-select') base.options = [
-      { label: 'Good Practice',         weight: 1,  triggersNCR: false },
-      { label: 'Compliant',             weight: 1,  triggersNCR: false },
-      { label: 'Observation',           weight: 1,  triggersNCR: false },
-      { label: 'Minor Non Conformance', weight: 1,  triggersNCR: false },
-      { label: 'Major Non Conformance', weight: 1,  triggersNCR: false },
-      { label: 'N/A',                   weight: -1, triggersNCR: false },
+      { label: 'Good Practice',         weight: 1,  triggersNCR: false, color: 'rgba(22,166,77,1)'   },
+      { label: 'Compliant',             weight: 1,  triggersNCR: false, color: 'rgba(142,217,115,1)' },
+      { label: 'Observation',           weight: 1,  triggersNCR: false, color: 'rgba(255,255,255,1)' },
+      { label: 'Minor Non Conformance', weight: 1,  triggersNCR: false, color: 'rgba(255,252,56,1)'  },
+      { label: 'Major Non Conformance', weight: 1,  triggersNCR: false, color: 'rgba(253,0,19,1)'    },
+      { label: 'N/A',                   weight: -1, triggersNCR: false, color: 'rgba(0,112,192,1)'   },
     ];
     if (type === 'number')     base.unit = '';
     if (type === 'text')       base.placeholder = '';
@@ -184,14 +184,15 @@ function FormBuilder({ form, onBack, onPublish }) {
                   {INSP_TYPES.map(t => (
                     <button key={t.type}
                       onClick={() => activeSection && addBlankField(activeSection, t.type)}
-                      style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4,
-                        padding:'10px 6px', border:'1.5px solid var(--n-200)', borderRadius:8, cursor:'pointer',
-                        background:'var(--n-0)', color:'var(--n-700)', fontSize:11, fontWeight:500, lineHeight:1.3,
-                        textAlign:'center', transition:'border-color 0.1s, background 0.1s' }}
+                      style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:4,
+                        padding:'10px 8px', border:'1.5px solid var(--n-200)', borderRadius:8, cursor:'pointer',
+                        background:'var(--n-0)', color:'var(--n-700)', lineHeight:1.3,
+                        textAlign:'left', transition:'border-color 0.1s, background 0.1s' }}
                       onMouseOver={e => { e.currentTarget.style.borderColor = t.color; e.currentTarget.style.background = t.color + '10'; }}
                       onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--n-200)'; e.currentTarget.style.background = 'var(--n-0)'; }}>
                       <span style={{ fontSize:18, lineHeight:1 }}>{t.icon}</span>
-                      {t.label}
+                      <div style={{ fontSize:11, fontWeight:600, color:'var(--n-800)' }}>{t.label}</div>
+                      <div style={{ fontSize:10, color:'var(--n-400)', lineHeight:1.3 }}>{FIELD_TYPE_DESCS[t.type]}</div>
                     </button>
                   ))}
                 </div>
