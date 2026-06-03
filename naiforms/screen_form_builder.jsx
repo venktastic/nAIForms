@@ -5,7 +5,7 @@ const FIELD_TYPES = [
   { type: 'text',          label: 'Short Text',     icon: 'T',  color: '#0ea5e9' },
   { type: 'long-text',     label: 'Long Text',      icon: '¶',  color: '#0284c7' },
   { type: 'date-time',     label: 'Date / Time',    icon: '📅', color: '#7c3aed' },
-  { type: 'photo',         label: 'Photo / Video',  icon: '📷', color: '#475569' },
+  { type: 'photo',         label: 'Photo',          icon: '📷', color: '#475569' },
   { type: 'location',      label: 'Location',       icon: '📍', color: '#ef4444' },
   { type: 'formula',       label: 'Formula',        icon: 'ƒ',  color: '#ec4899' },
   { type: 'attachment',    label: 'Attachments',    icon: '📎', color: '#64748b' },
@@ -309,12 +309,17 @@ function FormBuilder({ form, onBack, onPublish }) {
                 </div>
 
                 <div className="section-body" style={{ padding:14, minHeight:40 }}>
-                  {section.fields.map((field, fi) => (
+                  {section.fields.map((field, fi) => {
+                    const _scored = ['yes-no-na','single-select'].includes(field.fieldType);
+                    const _qNum = isInspection && _scored
+                      ? section.fields.slice(0, fi).filter(f => ['yes-no-na','single-select'].includes(f.fieldType)).length + 1
+                      : undefined;
+                    return (
                     <FieldRow key={field.id} field={field}
                       availableTypes={isInspection ? INSP_TYPES : STATS_TYPES}
                       isExpanded={expandedField === field.id}
                       isInspection={isInspection}
-                      questionNumber={isInspection ? fi + 1 : undefined}
+                      questionNumber={_qNum}
                       onToggle={() => setExpanded(expandedField===field.id ? null : field.id)}
                       onUpdate={patch => updateField(section.id, field.id, patch)}
                       onRemove={() => removeField(section.id, field.id)}
@@ -327,7 +332,8 @@ function FormBuilder({ form, onBack, onPublish }) {
                       }}
                       isDragging={drag?.fieldId === field.id}
                     />
-                  ))}
+                    );
+                  })}
 
                   {section.fields.length === 0 && !isInspection && (
                     <div style={{ padding:16, textAlign:'center', color:'var(--n-400)', fontSize:12, border:'1px dashed var(--n-300)', borderRadius:8 }}>
@@ -403,7 +409,13 @@ function FormBuilder({ form, onBack, onPublish }) {
                         </div>
                       )}
                     </div>
-                    {s.fields.map((f, fi) => <FieldPreview key={f.id} field={f} questionNumber={isInspection ? fi + 1 : undefined}/>)}
+                    {s.fields.map((f, fi) => {
+                      const _sc = ['yes-no-na','single-select'].includes(f.fieldType);
+                      const _qn = isInspection && _sc
+                        ? s.fields.slice(0, fi).filter(x => ['yes-no-na','single-select'].includes(x.fieldType)).length + 1
+                        : undefined;
+                      return <FieldPreview key={f.id} field={f} questionNumber={_qn}/>;
+                    })}
                   </div>
                 );
               })}
@@ -501,7 +513,7 @@ const FIELD_TYPE_DESCS = {
   'text':          'Single-line text answer',
   'long-text':     'Multi-line notes',
   'date-time':     'Date and time picker',
-  'photo':         'Camera or file attachment',
+  'photo':         'Attach photos',
   'location':      'GPS pin or map location',
 };
 
@@ -919,19 +931,12 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
             </div>
           )}
 
-          {/* Photo/Video config */}
+          {/* Photo config */}
           {field.fieldType === 'photo' && (
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12 }}>
-              <div>
-                <label className="label">Max files</label>
-                <input type="number" className="input" style={{ fontSize:12 }} min={1} max={20}
-                  value={field.maxPhotos||5} onChange={e => onUpdate({ maxPhotos: +e.target.value })}/>
-              </div>
-              <div style={{ display:'flex', alignItems:'flex-end', paddingBottom:2 }}>
-                <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
-                  <Switch on={field.allowVideo !== false} onChange={v => onUpdate({ allowVideo: v })}/> Allow video
-                </label>
-              </div>
+            <div style={{ marginBottom:12 }}>
+              <label className="label">Max files</label>
+              <input type="number" className="input" style={{ fontSize:12, width:80 }} min={1} max={20}
+                value={field.maxPhotos||5} onChange={e => onUpdate({ maxPhotos: +e.target.value })}/>
             </div>
           )}
 
@@ -991,9 +996,9 @@ function FieldRow({ field, availableTypes, isExpanded, isInspection, questionNum
                   <Switch on={!!field.required} onChange={v => onUpdate({ required: v })}/> Required
                 </label>
               )}
-              {isInspection && field.fieldType !== 'photo' && (
-                <label title="Let the user attach a photo alongside their answer." style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
-                  <Switch on={!!field.allowPhotoAttachment} onChange={v => onUpdate({ allowPhotoAttachment: v })}/> 📷 Allow photo attachment
+              {isInspection && field.fieldType !== 'photo' && field.fieldType !== 'location' && (
+                <label title="Let the user attach a file or photo alongside their answer." style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, userSelect:'none' }}>
+                  <Switch on={!!field.allowPhotoAttachment} onChange={v => onUpdate({ allowPhotoAttachment: v })}/> 📎 Allow Attachments
                 </label>
               )}
               {isInspection && (
@@ -1108,7 +1113,7 @@ function FieldPreview({ field, questionNumber }) {
       )}
       {field.fieldType==='photo' && (
         <div style={{ padding:'14px 10px', border:'1.5px dashed var(--n-300)', borderRadius:6, textAlign:'center', fontSize:12, color:'var(--n-400)' }}>
-          📷 Tap to add photo{field.allowVideo!==false?' / video':''}
+          📷 Tap to add photo
           {field.maxPhotos && <span style={{ fontSize:10, display:'block', marginTop:2 }}>Max {field.maxPhotos}</span>}
         </div>
       )}
@@ -1118,11 +1123,11 @@ function FieldPreview({ field, questionNumber }) {
         </div>
       )}
 
-      {/* Supplementary photo attachment (when allowPhotoAttachment = ON and not the photo type itself) */}
-      {field.allowPhotoAttachment && field.fieldType !== 'photo' && (
+      {/* Supplementary attachment (when Allow Attachments = ON, not for photo or location fields) */}
+      {field.allowPhotoAttachment && field.fieldType !== 'photo' && field.fieldType !== 'location' && (
         <div style={{ marginTop:6, padding:'7px 10px', border:'1.5px dashed var(--n-300)', borderRadius:6,
           fontSize:11, color:'var(--n-400)', display:'flex', alignItems:'center', gap:6 }}>
-          📷 <span>Add photo / video (optional)</span>
+          📎 <span>Add attachment (optional)</span>
         </div>
       )}
       {field.allowComment && (
@@ -1161,7 +1166,7 @@ function FillQuestion({ field, questionNumber, answer, onAnswer, hasError, comme
   return (
     <div style={cardStyle}>
       <div style={{ fontSize: 13.5, fontWeight: 600, color: '#111', marginBottom: field.helpText ? 4 : 10, display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', flexShrink: 0 }}>Q{questionNumber}</span>
+        {questionNumber != null && <span style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', flexShrink: 0 }}>Q{questionNumber}</span>}
         <span style={{ flex: 1 }}>{field.name || <span style={{ color: '#d1d5db', fontStyle: 'italic' }}>Untitled question</span>}</span>
         {field.required && <span style={{ color: 'rgba(253,0,19,1)', fontSize: 14, flexShrink: 0 }}>*</span>}
       </div>
@@ -1261,7 +1266,7 @@ function FillQuestion({ field, questionNumber, answer, onAnswer, hasError, comme
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
           <span style={{ fontSize: 26 }}>{answer ? '✓' : '📷'}</span>
           <span style={{ fontSize: 12, color: answer ? 'rgba(0,107,68,1)' : '#6b7280', fontWeight: 500 }}>
-            {answer ? 'Photo captured — tap to remove' : `Tap to add photo${field.allowVideo !== false ? ' / video' : ''}`}
+            {answer ? 'Photo captured — tap to remove' : 'Tap to add photo'}
           </span>
           {!answer && field.maxPhotos && <span style={{ fontSize: 11, color: '#9ca3af' }}>Max {field.maxPhotos} files</span>}
         </button>
@@ -1279,10 +1284,10 @@ function FillQuestion({ field, questionNumber, answer, onAnswer, hasError, comme
         </button>
       )}
 
-      {field.allowPhotoAttachment && field.fieldType !== 'photo' && (
+      {field.allowPhotoAttachment && field.fieldType !== 'photo' && field.fieldType !== 'location' && (
         <div style={{ marginTop: 10, padding: '8px 12px', border: '1px dashed #d1d5db', borderRadius: 10,
           fontSize: 12, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 6 }}>
-          📷 <span>Optional — attach photo or video evidence</span>
+          📎 <span>Optional — attach evidence</span>
         </div>
       )}
       {field.allowComment && (
@@ -1522,11 +1527,17 @@ function InspectionFillScreen({ form, onClose }) {
 
         {/* Questions — scrollable */}
         <div style={{ flex: 1, overflow: 'auto', padding: '14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {section.fields.map((f, fi) => (
-            <FillQuestion key={f.id} field={f} questionNumber={fi + 1}
-              answer={answers[f.id]} onAnswer={v => setAnswer(f.id, v)} hasError={!!errors[f.id]}
-              comment={answers[f.id + '_comment']} onComment={v => setAnswer(f.id + '_comment', v)}/>
-          ))}
+          {section.fields.map((f, fi) => {
+            const _sc = ['yes-no-na','single-select'].includes(f.fieldType);
+            const _qn = _sc
+              ? section.fields.slice(0, fi).filter(x => ['yes-no-na','single-select'].includes(x.fieldType)).length + 1
+              : undefined;
+            return (
+              <FillQuestion key={f.id} field={f} questionNumber={_qn}
+                answer={answers[f.id]} onAnswer={v => setAnswer(f.id, v)} hasError={!!errors[f.id]}
+                comment={answers[f.id + '_comment']} onComment={v => setAnswer(f.id + '_comment', v)}/>
+            );
+          })}
           <div style={{ height: 4 }}/>
         </div>
 
