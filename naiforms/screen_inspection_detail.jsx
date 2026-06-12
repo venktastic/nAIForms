@@ -88,26 +88,29 @@ window.SAMPLE_INSP_SUBMISSION = _INSP_SAMPLE;
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 function _scoreColor(pct) {
-  if (pct === 100) return '#10b981';
-  if (pct >= 50)   return '#f59e0b';
-  return '#ef4444';
+  if (pct >= 100) return '#22C55E';
+  if (pct >= 50)  return '#F59E0B';
+  return '#EF4444';
 }
-// Fix 3: richer, more saturated pill colours
+// Pastel pills per spec — soft bg, dark text for legibility
 function _pillStyle(response) {
   const map = {
-    'Good Practice':         { bg:'#059669', color:'#fff' },
-    'Compliant':             { bg:'#16a34a', color:'#fff' },
-    'Yes':                   { bg:'#059669', color:'#fff' },
-    'Observation':           { bg:'#d97706', color:'#fff' },
-    'Minor Non Conformance': { bg:'#ea580c', color:'#fff' },
-    'Major Non Conformance': { bg:'#dc2626', color:'#fff' },
-    'No':                    { bg:'#dc2626', color:'#fff' },
-    'NA':                    { bg:'#64748b', color:'#fff' },
+    'Good Practice':         { bg:'#DCFCE7', color:'#166534' },
+    'Compliant':             { bg:'#DBEAFE', color:'#1E40AF' },
+    'Yes':                   { bg:'#DCFCE7', color:'#166534' },
+    'Observation':           { bg:'#FEF9C3', color:'#854D0E' },
+    'Minor Non Conformance': { bg:'#FFEDD5', color:'#9A3412' },
+    'Major Non Conformance': { bg:'#FEE2E2', color:'#991B1B' },
+    'No':                    { bg:'#FEE2E2', color:'#991B1B' },
+    'NA':                    { bg:'#F3F4F6', color:'#6B7280' },
   };
-  return map[response] || { bg:'#64748b', color:'#fff' };
+  return map[response] || { bg:'#F3F4F6', color:'#6B7280' };
 }
-function _statusColor(s) {
-  return s === 'Open' ? '#ef4444' : s === 'Rectified' ? '#f59e0b' : s === 'Closed' ? '#10b981' : '#94a3b8';
+function _statusPill(s) {
+  if (s === 'Open')      return { bg:'#FEE2E2', color:'#991B1B' };
+  if (s === 'Rectified') return { bg:'#FEF9C3', color:'#854D0E' };
+  if (s === 'Closed')    return { bg:'#DCFCE7', color:'#166534' };
+  return { bg:'#F3F4F6', color:'#6B7280' };
 }
 function _initials(name) {
   if (!name) return '?';
@@ -117,23 +120,30 @@ function _initials(name) {
 const _ASSIGNEES = ['Prakash Senghani','Surya Tej Kotamreddy','Venkatesh Murthy','Rakesh Hirani','Arun Kumar','Ahmed Al-Rashid'];
 
 // ── ScoreBar ─────────────────────────────────────────────────────────────────
-// Fix 6: macro section health bar below the header
+// ── CSS injected once for hover-only states ───────────────────────────────────
+const _NID_STYLES = `
+  ._nid-nc-card .nid-edit-btn { opacity: 0; transition: opacity 0.12s; }
+  ._nid-nc-card:hover .nid-edit-btn { opacity: 1; }
+  ._nid-sec-btn:hover { background: #F9FAFB !important; }
+  ._nid-sec-btn.active:hover { background: #EFF6FF !important; }
+`;
+
+// ── Score bar ─────────────────────────────────────────────────────────────────
 function _ScoreBar({ sections }) {
   const n = sections.length;
   return (
-    <div style={{ padding:'10px 24px 8px', background:'#fff', borderBottom:'1px solid #e2e8f0' }}>
-      <div style={{ display:'flex', gap:2, height:7, borderRadius:4 }}>
+    <div style={{ padding:'12px 24px 10px', background:'#fff', borderBottom:'1px solid #E5E7EB' }}>
+      <div style={{ display:'flex', gap:2, height:8 }}>
         {sections.map((s, i) => (
           <div key={s.id} title={`${s.name}: ${s.score}%`}
             style={{ flex:1, background:_scoreColor(s.score),
-              borderRadius: i===0 ? '4px 0 0 4px' : i===n-1 ? '0 4px 4px 0' : '0',
-              transition:'opacity 0.15s' }}/>
+              borderRadius: i===0 ? '4px 0 0 4px' : i===n-1 ? '0 4px 4px 0' : '0' }}/>
         ))}
       </div>
       <div style={{ display:'flex', gap:2, marginTop:5 }}>
         {sections.map(s => (
           <div key={s.id} title={`${s.name}: ${s.score}%`}
-            style={{ flex:1, fontSize:9, color:'#94a3b8', overflow:'hidden',
+            style={{ flex:1, fontSize:10, color:'#9CA3AF', overflow:'hidden',
               textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign:'center' }}>
             {s.name}
           </div>
@@ -144,77 +154,62 @@ function _ScoreBar({ sections }) {
 }
 
 // ── QuestionCard ──────────────────────────────────────────────────────────────
-// Fix 3+4: prominent response pill, clear internal zones, shadow on grey bg
 function _QuestionCard({ q }) {
   const pill = _pillStyle(q.response);
-  const imgs = q.images || [];
+  const imgs = (q.images || []).filter(Boolean);
   const hasComment = q.comment && q.comment.trim().length > 0;
+  const hasPhotos  = imgs.length > 0;
 
   return (
-    <div style={{ background:'#fff', border:'1px solid #e8ecf0', borderRadius:10,
-      padding:16, boxShadow:'0 1px 3px rgba(0,0,0,0.06)' }}>
+    <div style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:12,
+      padding:16, display:'flex', flexDirection:'column', gap:10 }}>
 
-      {/* Zone 1: question identifier + text */}
-      <div style={{ marginBottom:14 }}>
+      {/* Zone 1 — question ref + text */}
+      <div>
         {q.num != null && (
-          <div style={{ fontSize:10, fontWeight:700, color:'#94a3b8', letterSpacing:'0.08em',
+          <div style={{ fontSize:11, fontWeight:600, color:'#9CA3AF', letterSpacing:'0.08em',
             textTransform:'uppercase', marginBottom:5 }}>Question {q.num}</div>
         )}
-        <div style={{ fontSize:15, fontWeight:500, color:'#0f172a', lineHeight:1.6 }}>{q.text}</div>
+        <div style={{ fontSize:15, fontWeight:500, color:'#111827', lineHeight:1.6 }}>{q.text}</div>
       </div>
 
-      {/* Zone 2: response pill — fix 3, most prominent element */}
-      <div style={{ marginBottom:14, paddingBottom:14, borderBottom:'1px solid #f1f5f9' }}>
-        <div style={{ display:'inline-block', padding:'7px 20px', borderRadius:8, fontSize:14,
-          fontWeight:700, background:pill.bg, color:pill.color,
-          boxShadow:`0 2px 6px ${pill.bg}55`, letterSpacing:'0.01em' }}>
+      {/* Zone 2 — response pill: most prominent element */}
+      <div>
+        <span style={{ display:'inline-block', padding:'8px 16px', borderRadius:9999, fontSize:13,
+          fontWeight:600, background:pill.bg, color:pill.color }}>
           {q.response}
-        </div>
+        </span>
       </div>
 
-      {/* Zone 3: comment + photos */}
-      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-        <div>
-          <div style={{ fontSize:10, fontWeight:700, color:'#94a3b8', letterSpacing:'0.08em',
-            textTransform:'uppercase', marginBottom:6 }}>Comment</div>
-          <div style={{ fontSize:13, color: hasComment ? '#334155' : '#c8d0da',
-            background: hasComment ? '#f8fafc' : 'transparent',
-            padding: hasComment ? '8px 12px' : 0,
-            borderRadius:6, border: hasComment ? '1px solid #eef0f4' : 'none',
-            lineHeight:1.6, fontStyle: hasComment ? 'normal' : 'italic' }}>
-            {hasComment ? q.comment : 'No comment added'}
-          </div>
+      {/* Zone 3 — comment (only if present) */}
+      {hasComment && (
+        <div style={{ fontSize:13, color:'#6B7280', lineHeight:1.6, marginTop:4 }}>
+          {q.comment}
         </div>
+      )}
 
-        <div>
-          <div style={{ fontSize:10, fontWeight:700, color:'#94a3b8', letterSpacing:'0.08em',
-            textTransform:'uppercase', marginBottom:6 }}>Photos</div>
-          {imgs.length > 0 ? (
-            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-              {imgs.slice(0, 3).map((src, i) => (
-                <div key={i} style={{ width:72, height:72, borderRadius:8, flexShrink:0,
-                  background: src.startsWith('#') ? src : '#e2e8f0',
-                  border:'1px solid rgba(0,0,0,0.08)',
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  boxShadow:'0 1px 3px rgba(0,0,0,0.10)', overflow:'hidden' }}>
-                  {src.startsWith('#')
-                    ? <span style={{ fontSize:24, opacity:0.45 }}>📷</span>
-                    : <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>}
-                </div>
-              ))}
-              {imgs.length > 3 && (
-                <div style={{ width:72, height:72, borderRadius:8, background:'#f1f5f9',
-                  border:'1px solid #e2e8f0', display:'flex', alignItems:'center',
-                  justifyContent:'center', fontSize:13, color:'#64748b', fontWeight:700, flexShrink:0 }}>
-                  +{imgs.length - 3}
-                </div>
-              )}
+      {/* Zone 4 — photos (only if present) */}
+      {hasPhotos && (
+        <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:4 }}>
+          {imgs.slice(0, 4).map((src, i) => (
+            <div key={i} style={{ width:56, height:56, borderRadius:6, flexShrink:0,
+              background: src.startsWith('#') ? src : '#E5E7EB', overflow:'hidden',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              border:'1px solid rgba(0,0,0,0.06)' }}>
+              {src.startsWith('#')
+                ? <span style={{ fontSize:20, opacity:0.4 }}>📷</span>
+                : <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>}
             </div>
-          ) : (
-            <div style={{ fontSize:12, color:'#c8d0da', fontStyle:'italic' }}>No photos added</div>
+          ))}
+          {imgs.length > 4 && (
+            <div style={{ width:56, height:56, borderRadius:6, background:'#F3F4F6',
+              border:'1px solid #E5E7EB', display:'flex', alignItems:'center',
+              justifyContent:'center', fontSize:12, color:'#6B7280', fontWeight:600, flexShrink:0 }}>
+              +{imgs.length - 4}
+            </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -222,51 +217,50 @@ function _QuestionCard({ q }) {
 // ── SectionView ───────────────────────────────────────────────────────────────
 function _SectionView({ section, tab, setTab }) {
   if (!section) return (
-    <div style={{ padding:48, textAlign:'center', color:'#94a3b8', fontSize:13 }}>No section selected.</div>
+    <div style={{ padding:48, textAlign:'center', color:'#9CA3AF', fontSize:13 }}>No section selected.</div>
   );
 
   const additionalTypes = ['text','long-text','number','date-time'];
   const additionalQs = section.questions.filter(q => additionalTypes.includes(q.fieldType));
 
   return (
-    <div>
+    <div style={{ display:'flex', flexDirection:'column', minHeight:'100%' }}>
       {/* Per-section location */}
       {section.location && (
-        <div style={{ padding:'10px 20px', background:'#eff6ff', borderBottom:'1px solid #bfdbfe',
-          display:'flex', alignItems:'center', gap:8, fontSize:13, color:'#1d4ed8', fontWeight:500 }}>
+        <div style={{ padding:'8px 20px', background:'#EFF6FF', borderBottom:'1px solid #BFDBFE',
+          display:'flex', alignItems:'center', gap:8, fontSize:12, color:'#1D4ED8' }}>
           📍 <span>{section.location}</span>
         </div>
       )}
 
-      {/* Tabs */}
-      <div style={{ display:'flex', padding:'0 20px', borderBottom:'1px solid #e2e8f0', background:'#fff' }}>
+      {/* Minimal underline tabs */}
+      <div style={{ display:'flex', padding:'0 20px', borderBottom:'1px solid #E5E7EB', background:'#fff', flexShrink:0 }}>
         {[['responses','Responses'],['additional','Additional Data']].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)}
-            style={{ padding:'11px 16px', border:'none', background:'transparent',
-              borderBottom:`2px solid ${tab === key ? '#3b82f6' : 'transparent'}`,
-              color: tab === key ? '#1d4ed8' : '#64748b', fontSize:13,
-              fontWeight: tab === key ? 600 : 400, cursor:'pointer' }}>
+            style={{ padding:'10px 16px', border:'none', background:'transparent',
+              borderBottom:`2px solid ${tab === key ? '#2563EB' : 'transparent'}`,
+              color: tab === key ? '#1D4ED8' : '#6B7280', fontSize:13,
+              fontWeight: tab === key ? 600 : 400, cursor:'pointer', marginBottom:-1 }}>
             {label}
           </button>
         ))}
       </div>
 
-      {/* Fix 1: grey background, cards float */}
-      <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12, background:'#f8f9fa', minHeight:'100%' }}>
+      {/* Content on #F4F6F8 */}
+      <div style={{ flex:1, padding:20, display:'flex', flexDirection:'column', gap:12, background:'#F4F6F8' }}>
         {tab === 'responses' ? (
           section.questions.length === 0
-            ? <div style={{ padding:40, textAlign:'center', color:'#94a3b8', fontSize:13 }}>No questions in this section.</div>
+            ? <div style={{ padding:40, textAlign:'center', color:'#9CA3AF', fontSize:13 }}>No questions in this section.</div>
             : section.questions.map(q => <_QuestionCard key={q.id} q={q}/>)
         ) : (
           additionalQs.length === 0
-            ? <div style={{ padding:40, textAlign:'center', color:'#94a3b8', fontSize:13 }}>No additional data for this section.</div>
-            : <div style={{ background:'#fff', border:'1px solid #e8ecf0', borderRadius:10, overflow:'hidden',
-                boxShadow:'0 1px 3px rgba(0,0,0,0.06)' }}>
+            ? <div style={{ padding:40, textAlign:'center', color:'#9CA3AF', fontSize:13 }}>No additional data for this section.</div>
+            : <div style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:12, overflow:'hidden' }}>
                 {additionalQs.map((q, i) => (
                   <div key={q.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
-                    padding:'11px 16px', borderBottom: i < additionalQs.length-1 ? '1px solid #f1f5f9' : 'none', fontSize:13 }}>
-                    <span style={{ color:'#64748b' }}>{q.text}</span>
-                    <span style={{ fontWeight:500, color:'#1e293b', maxWidth:'50%', textAlign:'right' }}>{q.value || '—'}</span>
+                    padding:'11px 16px', borderBottom: i < additionalQs.length-1 ? '1px solid #F3F4F6' : 'none', fontSize:13 }}>
+                    <span style={{ color:'#6B7280' }}>{q.text}</span>
+                    <span style={{ fontWeight:500, color:'#111827', maxWidth:'50%', textAlign:'right' }}>{q.value || '—'}</span>
                   </div>
                 ))}
               </div>
@@ -289,102 +283,107 @@ function _NCView({ allNCs, ncData, checked, setChecked, onEditSingle, onBulkAssi
   }
 
   return (
-    <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12, background:'#f8f9fa', minHeight:'100%' }}>
+    <div style={{ flex:1, padding:20, display:'flex', flexDirection:'column', gap:12, background:'#F4F6F8', minHeight:'100%' }}>
       {allNCs.length === 0 && (
-        <div style={{ padding:48, textAlign:'center', color:'#94a3b8', fontSize:13 }}>No non-conformances recorded.</div>
+        <div style={{ padding:48, textAlign:'center', color:'#9CA3AF', fontSize:13 }}>No non-conformances recorded.</div>
       )}
 
       {allNCs.map(q => {
-        const live = ncData[q.id] || {};
-        const pillBg = q.response === 'Major Non Conformance' ? '#ef4444' : '#f97316';
-        const instr = live.hseInstructions || '';
-        const isLong = instr.length > 80;
+        const live    = ncData[q.id] || {};
+        const resPill = _pillStyle(q.response);
+        const instr   = live.hseInstructions || '';
+        const isLong  = instr.length > 120;
         const expanded = expandedInstr.has(q.id);
+        const sp = live.status ? _statusPill(live.status) : null;
 
         return (
-          <div key={q.id} style={{ background:'#fff', border:'1px solid #e8ecf0', borderRadius:10,
-            padding:'14px 16px', display:'flex', gap:10, position:'relative',
-            boxShadow:'0 1px 3px rgba(0,0,0,0.06)' }}>
-            <input type="checkbox" checked={checked.has(q.id)} onChange={() => toggle(q.id)}
-              style={{ marginTop:4, cursor:'pointer', flexShrink:0 }}/>
-            <div style={{ flex:1, minWidth:0, paddingRight:32 }}>
-              {/* Meta */}
-              <div style={{ fontSize:11, color:'#94a3b8', marginBottom:4 }}>
-                Q{q.num} · <span style={{ color:'#64748b' }}>{q.sectionName}</span>
-              </div>
-              {/* Question text */}
-              <div style={{ fontSize:14, fontWeight:500, color:'#0f172a', lineHeight:1.5, marginBottom:10 }}>{q.text}</div>
-              {/* Compliance + assignee row */}
-              <div style={{ display:'flex', flexWrap:'wrap', gap:8, alignItems:'center' }}>
-                <span style={{ padding:'4px 14px', borderRadius:20, fontSize:12, fontWeight:700,
-                  background:pillBg, color:'#fff' }}>{q.response}</span>
-                {live.assignedTo ? (
-                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                    <div style={{ width:26, height:26, borderRadius:'50%', background:'#dbeafe',
-                      color:'#1d4ed8', fontSize:10, fontWeight:700,
-                      display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      {_initials(live.assignedTo)}
-                    </div>
-                    <span style={{ fontSize:12, color:'#334155' }}>{live.assignedTo}</span>
-                    {live.status && (
-                      <span style={{ fontSize:11, padding:'2px 8px', borderRadius:10, fontWeight:600,
-                        background: _statusColor(live.status) + '20', color: _statusColor(live.status) }}>
-                        {live.status}
-                      </span>
-                    )}
+          <div key={q.id} className="_nid-nc-card"
+            style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:12,
+              padding:16, position:'relative' }}>
+
+            {/* Top row: checkbox + ref */}
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+              <input type="checkbox" checked={checked.has(q.id)} onChange={() => toggle(q.id)}
+                style={{ cursor:'pointer', flexShrink:0 }}/>
+              <span style={{ fontSize:11, color:'#9CA3AF', flex:1 }}>
+                Q{q.num} · {q.sectionName}
+              </span>
+              {/* Hover-reveal edit icon via CSS class */}
+              <button className="nid-edit-btn" onClick={() => onEditSingle(q.id, live)}
+                style={{ background:'none', border:'1px solid #E5E7EB', borderRadius:6,
+                  cursor:'pointer', padding:'3px 8px', fontSize:12, color:'#6B7280',
+                  lineHeight:1, display:'flex', alignItems:'center', gap:4 }}
+                title="Edit assignment">
+                ✏ Edit
+              </button>
+            </div>
+
+            {/* Question text */}
+            <div style={{ fontSize:15, fontWeight:500, color:'#111827', lineHeight:1.5, marginBottom:12 }}>
+              {q.text}
+            </div>
+
+            {/* Response + assignee row */}
+            <div style={{ display:'flex', flexWrap:'wrap', gap:8, alignItems:'center', marginBottom: instr ? 10 : 0 }}>
+              <span style={{ padding:'5px 12px', borderRadius:9999, fontSize:12, fontWeight:600,
+                background:resPill.bg, color:resPill.color }}>{q.response}</span>
+
+              {live.assignedTo ? (
+                <>
+                  <div style={{ width:24, height:24, borderRadius:'50%', background:'#DBEAFE',
+                    color:'#1E40AF', fontSize:9, fontWeight:700, flexShrink:0,
+                    display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    {_initials(live.assignedTo)}
                   </div>
-                ) : (
-                  <span style={{ fontSize:12, color:'#94a3b8', fontStyle:'italic' }}>Unassigned</span>
-                )}
-              </div>
-              {/* HSE Instructions */}
-              {instr ? (
-                <div style={{ marginTop:8, fontSize:12, color:'#475569', background:'#f8fafc',
-                  padding:'8px 10px', borderRadius:6, borderLeft:'3px solid #e2e8f0', lineHeight:1.5 }}>
-                  {isLong && !expanded ? instr.slice(0, 80) + '…' : instr}
-                  {isLong && (
-                    <button onClick={() => setExpandedInstr(p => {
-                        const n = new Set(p); if (n.has(q.id)) n.delete(q.id); else n.add(q.id); return n;
-                      })}
-                      style={{ background:'none', border:'none', color:'#2563eb', fontSize:11,
-                        cursor:'pointer', marginLeft:4, padding:0, fontWeight:600 }}>
-                      {expanded ? 'Show less' : 'Show more'}
-                    </button>
+                  <span style={{ fontSize:12, color:'#374151' }}>{live.assignedTo}</span>
+                  {sp && (
+                    <span style={{ fontSize:11, padding:'3px 9px', borderRadius:9999, fontWeight:600,
+                      background:sp.bg, color:sp.color }}>{live.status}</span>
                   )}
-                </div>
+                </>
               ) : (
-                live.assignedTo ? null :
-                <div style={{ marginTop:8 }}>
-                  <button onClick={() => onEditSingle(q.id, live)}
-                    style={{ background:'none', border:'none', fontSize:12, color:'#2563eb',
-                      cursor:'pointer', padding:0, textDecoration:'underline' }}>
-                    + Add instructions
-                  </button>
-                </div>
+                <span style={{ fontSize:12, padding:'3px 10px', borderRadius:9999, fontWeight:500,
+                  background:'#F3F4F6', color:'#6B7280' }}>Unassigned</span>
               )}
             </div>
-            {/* Edit button */}
-            <button onClick={() => onEditSingle(q.id, live)}
-              style={{ position:'absolute', top:12, right:12, background:'none',
-                border:'1px solid #e2e8f0', borderRadius:6, cursor:'pointer',
-                padding:'4px 7px', fontSize:13, color:'#2563eb', lineHeight:1 }}
-              title="Edit NC assignment">
-              ✏
-            </button>
+
+            {/* HSE instructions */}
+            {instr && (
+              <div style={{ marginTop:8, fontSize:13, color:'#6B7280', lineHeight:1.6 }}>
+                {isLong && !expanded ? instr.slice(0, 120) + '…' : instr}
+                {isLong && (
+                  <button onClick={() => setExpandedInstr(p => {
+                      const n = new Set(p); if (n.has(q.id)) n.delete(q.id); else n.add(q.id); return n;
+                    })}
+                    style={{ background:'none', border:'none', color:'#2563EB', fontSize:12,
+                      cursor:'pointer', marginLeft:4, padding:0, fontWeight:600 }}>
+                    {expanded ? 'Show less' : 'Show more'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Add instructions link — only if unassigned AND no instructions */}
+            {!instr && !live.assignedTo && (
+              <button onClick={() => onEditSingle(q.id, live)}
+                style={{ background:'none', border:'none', fontSize:13, color:'#2563EB',
+                  cursor:'pointer', padding:0, marginTop:8, display:'block' }}>
+                + Add instructions
+              </button>
+            )}
           </div>
         );
       })}
 
-      {/* Bulk action bar */}
+      {/* Bulk action bar — normal flow, not fixed */}
       {checked.size > 0 && (
-        <div style={{ marginTop:4, padding:'12px 16px', background:'#fff',
-          border:'1px solid #93c5fd', borderRadius:10, display:'flex', alignItems:'center', gap:12,
-          boxShadow:'0 2px 8px rgba(37,99,235,0.10)' }}>
-          <span style={{ fontSize:13, color:'#334155', fontWeight:500 }}>{checked.size} selected</span>
+        <div style={{ padding:'12px 16px', background:'#fff', border:'1px solid #E5E7EB',
+          borderRadius:12, display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontSize:13, color:'#6B7280' }}>{checked.size} selected</span>
           <Btn variant="primary" size="sm" onClick={onBulkAssign}>Bulk assign</Btn>
           <button onClick={() => setChecked(new Set())}
-            style={{ background:'none', border:'none', fontSize:12, color:'#64748b',
-              cursor:'pointer', textDecoration:'underline', padding:0 }}>
+            style={{ background:'none', border:'none', fontSize:13, color:'#6B7280',
+              cursor:'pointer', padding:0 }}>
             Clear selection
           </button>
         </div>
@@ -394,51 +393,59 @@ function _NCView({ allNCs, ncData, checked, setChecked, onEditSingle, onBulkAssi
 }
 
 // ── AssignDrawer ──────────────────────────────────────────────────────────────
-function _AssignDrawer({ mode, ncId, ncCount, ncText, initial, onSave, onClose }) {
+function _AssignDrawer({ mode, ncCount, ncText, initial, onSave, onClose }) {
   const [form, setForm] = useState({
-    assignedTo: initial?.assignedTo || '',
-    status:     initial?.status     || 'Open',
+    assignedTo:      initial?.assignedTo      || '',
+    status:          initial?.status          || 'Open',
     hseInstructions: initial?.hseInstructions || '',
   });
 
-  const canSave = mode === 'bulk'
-    ? true
-    : !!form.hseInstructions.trim();
+  const canSave = mode === 'bulk' ? true : !!form.hseInstructions.trim();
+
+  const lbl = (text, required) => (
+    <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:6 }}>
+      {text}{required && <span style={{ color:'#EF4444', marginLeft:2 }}>*</span>}
+    </label>
+  );
 
   return (
     <>
+      {/* Scrim */}
       <div onClick={onClose}
-        style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.25)', zIndex:200 }}/>
-      <div style={{ position:'fixed', top:0, right:0, bottom:0, width:400,
-        background:'#fff', boxShadow:'-4px 0 32px rgba(0,0,0,0.14)', zIndex:201,
+        style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.18)', zIndex:200 }}/>
+      {/* Panel — slides from right */}
+      <div style={{ position:'fixed', top:0, right:0, bottom:0, width:380,
+        background:'#fff', borderLeft:'1px solid #E5E7EB',
+        boxShadow:'-8px 0 24px rgba(0,0,0,0.08)', zIndex:201,
         display:'flex', flexDirection:'column', fontFamily:'var(--font-sans)' }}>
 
         {/* Header */}
-        <div style={{ padding:'20px 24px', borderBottom:'1px solid #e2e8f0' }}>
-          <div style={{ fontSize:16, fontWeight:700, color:'#0f172a' }}>
-            {mode === 'bulk' ? `Bulk assign — ${ncCount} non-conformances` : 'Assign NC'}
+        <div style={{ padding:'20px 24px', borderBottom:'1px solid #E5E7EB' }}>
+          <div style={{ fontSize:15, fontWeight:700, color:'#111827', marginBottom:2 }}>
+            {mode === 'bulk' ? `Assign ${ncCount} NCs` : 'Assign NC'}
           </div>
           {mode === 'single' && ncText && (
-            <div style={{ fontSize:12, color:'#64748b', marginTop:4,
-              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+            <div style={{ fontSize:12, color:'#6B7280', marginTop:4, lineHeight:1.4,
+              display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
               {ncText}
             </div>
           )}
         </div>
 
         {/* Body */}
-        <div style={{ flex:1, overflowY:'auto', padding:24, display:'flex', flexDirection:'column', gap:16 }}>
+        <div style={{ flex:1, overflowY:'auto', padding:'20px 24px',
+          display:'flex', flexDirection:'column', gap:16 }}>
           <div>
-            <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#334155', marginBottom:6 }}>Assign To</label>
+            {lbl('Assign To')}
             <select className="input" value={form.assignedTo}
               onChange={e => setForm(f => ({ ...f, assignedTo:e.target.value }))}
               style={{ fontSize:13 }}>
-              <option value="">— Select assignee —</option>
+              <option value="">— Select person —</option>
               {_ASSIGNEES.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
           <div>
-            <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#334155', marginBottom:6 }}>Status</label>
+            {lbl('Status')}
             <select className="input" value={form.status}
               onChange={e => setForm(f => ({ ...f, status:e.target.value }))}
               style={{ fontSize:13 }}>
@@ -449,22 +456,24 @@ function _AssignDrawer({ mode, ncId, ncCount, ncText, initial, onSave, onClose }
           </div>
           {mode === 'single' && (
             <div>
-              <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#334155', marginBottom:6 }}>
-                HSE Instructions <span style={{ color:'#ef4444' }}>*</span>
-              </label>
+              {lbl('HSE Instructions', true)}
               <textarea className="input" rows={5}
                 value={form.hseInstructions}
                 onChange={e => setForm(f => ({ ...f, hseInstructions:e.target.value }))}
-                placeholder="Enter HSE instructions…"
-                style={{ fontSize:13, resize:'vertical', minHeight:100 }}/>
+                placeholder="Describe the corrective action required…"
+                style={{ fontSize:13, resize:'vertical', minHeight:96 }}/>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div style={{ padding:'16px 24px', borderTop:'1px solid #e2e8f0',
-          display:'flex', gap:8, justifyContent:'flex-end' }}>
-          <Btn onClick={onClose}>Discard</Btn>
+        <div style={{ padding:'16px 24px', borderTop:'1px solid #E5E7EB',
+          display:'flex', justifyContent:'flex-end', gap:8 }}>
+          <button onClick={onClose}
+            style={{ background:'none', border:'none', fontSize:13, color:'#6B7280',
+              cursor:'pointer', padding:'8px 12px', fontWeight:500 }}>
+            Discard
+          </button>
           <Btn variant="primary" disabled={!canSave} onClick={() => onSave(form)}>
             {mode === 'bulk' ? `Assign ${ncCount} NCs` : 'Save'}
           </Btn>
@@ -493,15 +502,13 @@ function InspectionDetailScreen({ submission, onBack }) {
     return m;
   });
 
-  const currentSec = sub.sections.find(s => s.id === activeSection);
-  const circleColor = _scoreColor(sub.score);
+  const currentSec   = sub.sections.find(s => s.id === activeSection);
+  const circleColor  = _scoreColor(sub.score);
 
-  function openDrawerSingle(ncId, existingNcr) {
+  function openDrawerSingle(ncId) {
     setDrawer({ mode:'single', ncId, text: allNCs.find(q => q.id === ncId)?.text || '' });
   }
-  function openDrawerBulk() {
-    setDrawer({ mode:'bulk' });
-  }
+  function openDrawerBulk() { setDrawer({ mode:'bulk' }); }
   function saveDrawer(form) {
     if (drawer.mode === 'single') {
       setNcData(d => ({ ...d, [drawer.ncId]: { ...(d[drawer.ncId]||{}), ...form } }));
@@ -517,100 +524,97 @@ function InspectionDetailScreen({ submission, onBack }) {
   }
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', minHeight:'100%', fontFamily:'var(--font-sans)', position:'relative' }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', fontFamily:'var(--font-sans)', position:'relative', background:'#F4F6F8' }}>
+      {/* Inject CSS for hover-reveal and sidebar hover states */}
+      <style dangerouslySetInnerHTML={{ __html: _NID_STYLES }}/>
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div style={{ padding:'14px 24px', background:'#fff',
+      {/* ── Page header ──────────────────────────────────────────────────────── */}
+      <div style={{ padding:'16px 24px', background:'#fff', borderBottom:'1px solid #E5E7EB',
         display:'flex', alignItems:'flex-start', gap:12, flexShrink:0 }}>
         <button onClick={onBack}
-          style={{ background:'none', border:'none', cursor:'pointer', fontSize:22, color:'#94a3b8',
-            padding:'0 6px', borderRadius:6, lineHeight:1, marginTop:3, flexShrink:0 }}>
-          ‹
+          style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:'#9CA3AF',
+            padding:'2px 4px', lineHeight:1, marginTop:4, flexShrink:0 }}
+          title="Back to Workflows">
+          ←
         </button>
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4, flexWrap:'wrap' }}>
-            <span style={{ fontSize:18, fontWeight:600, color:'#0f172a' }}>{sub.topic}</span>
-            <span style={{ fontSize:10, fontWeight:700, padding:'3px 10px', borderRadius:12,
-              background:'#f1f5f9', color:'#64748b', textTransform:'uppercase', letterSpacing:'0.06em' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4, flexWrap:'wrap' }}>
+            <span style={{ fontSize:18, fontWeight:600, color:'#111827', letterSpacing:'-0.01em' }}>{sub.topic}</span>
+            <span style={{ fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:9999,
+              background:'#F3F4F6', color:'#6B7280', textTransform:'uppercase', letterSpacing:'0.06em' }}>
               {sub.type}
             </span>
           </div>
-          {/* Fix 5: no labels — context makes it obvious */}
-          <div style={{ fontSize:13, color:'#94a3b8', display:'flex', flexWrap:'wrap', alignItems:'center', gap:0 }}>
+          <div style={{ fontSize:13, color:'#9CA3AF', display:'flex', flexWrap:'wrap', alignItems:'center' }}>
             <span>{sub.conductedBy}</span>
-            <span style={{ margin:'0 8px', color:'#e2e8f0' }}>·</span>
+            <span style={{ margin:'0 6px' }}>·</span>
             <span>{sub.conductedOn}</span>
             {sub.conductedAt && <>
-              <span style={{ margin:'0 8px', color:'#e2e8f0' }}>·</span>
+              <span style={{ margin:'0 6px' }}>·</span>
               <span>📍 {sub.conductedAt}</span>
-            </>}
-            {!sub.conductedAt && <>
-              <span style={{ margin:'0 8px', color:'#e2e8f0' }}>·</span>
-              <span style={{ fontStyle:'italic' }}>Location not recorded</span>
             </>}
           </div>
         </div>
         {/* Score circle */}
-        <div style={{ width:58, height:58, borderRadius:'50%', border:`4px solid ${circleColor}`,
-          display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
-          boxShadow:`0 0 0 3px ${circleColor}22` }}>
-          <span style={{ fontSize:14, fontWeight:800, color:circleColor }}>{sub.score}%</span>
+        <div style={{ width:56, height:56, borderRadius:'50%', flexShrink:0,
+          border:`3px solid ${circleColor}`,
+          display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <span style={{ fontSize:13, fontWeight:800, color:circleColor }}>{sub.score}%</span>
         </div>
       </div>
 
-      {/* Fix 6: section score bar — macro before micro */}
+      {/* ── Section score bar ─────────────────────────────────────────────────── */}
       <_ScoreBar sections={sub.sections}/>
 
-      {/* ── Body ───────────────────────────────────────────────────────────── */}
+      {/* ── Two-column body ───────────────────────────────────────────────────── */}
       <div style={{ display:'flex', flex:1, overflow:'hidden', minHeight:0 }}>
 
-        {/* Fix 2: sidebar with left accent bar + score pills */}
-        <div style={{ width:256, borderRight:'1px solid #e2e8f0', background:'#fff',
+        {/* Left nav — 220px */}
+        <div style={{ width:220, background:'#fff', borderRight:'1px solid #E5E7EB',
           overflowY:'auto', flexShrink:0 }}>
           {sub.sections.map(s => {
             const isActive = !ncView && activeSection === s.id;
             const sc = _scoreColor(s.score);
             return (
-              <button key={s.id}
+              <button key={s.id} className={`_nid-sec-btn${isActive?' active':''}`}
                 onClick={() => { setNcView(false); setActive(s.id); setTab('responses'); }}
-                style={{ width:'100%', padding:'10px 14px 10px 16px', border:'none',
-                  borderBottom:'1px solid #f1f5f9',
-                  borderLeft: isActive ? '3px solid #2563eb' : '3px solid transparent',
-                  background: isActive ? '#eff6ff' : 'transparent',
-                  color: isActive ? '#1d4ed8' : '#374151',
+                style={{ width:'100%', padding:'10px 12px 10px 16px', border:'none',
+                  borderBottom:'1px solid #F3F4F6',
+                  borderLeft: isActive ? '3px solid #2563EB' : '3px solid transparent',
+                  background: isActive ? '#EFF6FF' : 'transparent',
+                  color: isActive ? '#1D4ED8' : '#374151',
                   cursor:'pointer', display:'flex', justifyContent:'space-between',
                   alignItems:'center', textAlign:'left', fontSize:13,
-                  fontWeight: isActive ? 600 : 400 }}>
+                  fontWeight: isActive ? 600 : 400, transition:'background 0.1s' }}>
                 <span style={{ flex:1, lineHeight:1.4, marginRight:8 }}>{s.name}</span>
-                {/* Score pill */}
-                <span style={{ fontSize:11, fontWeight:700, padding:'2px 7px', borderRadius:10,
-                  flexShrink:0,
-                  background: isActive ? sc + '20' : sc + '15',
-                  color: sc }}>
+                <span style={{ fontSize:11, fontWeight:700, padding:'2px 7px', borderRadius:9999,
+                  flexShrink:0, background: sc + '18', color: sc }}>
                   {s.score}%
                 </span>
               </button>
             );
           })}
-          {/* NC tab */}
-          <button onClick={() => { setNcView(true); setChecked(new Set()); }}
-            style={{ width:'100%', padding:'10px 14px 10px 16px', border:'none',
-              borderBottom:'1px solid #f1f5f9',
-              borderLeft: ncView ? '3px solid #dc2626' : '3px solid transparent',
-              background: ncView ? '#fef2f2' : 'transparent',
-              color: ncView ? '#dc2626' : '#6b7280',
+          {/* NC row */}
+          <button className="_nid-sec-btn"
+            onClick={() => { setNcView(true); setChecked(new Set()); }}
+            style={{ width:'100%', padding:'10px 12px 10px 16px', border:'none',
+              borderBottom:'1px solid #F3F4F6',
+              borderLeft: ncView ? '3px solid #DC2626' : '3px solid transparent',
+              background: ncView ? '#FEF2F2' : 'transparent',
+              color: ncView ? '#DC2626' : '#6B7280',
               cursor:'pointer', display:'flex', justifyContent:'space-between',
-              alignItems:'center', textAlign:'left', fontSize:13, fontWeight:600 }}>
+              alignItems:'center', textAlign:'left', fontSize:13, fontWeight:600,
+              transition:'background 0.1s' }}>
             <span>Non Conformance</span>
-            <span style={{ fontSize:11, fontWeight:700, padding:'2px 7px', borderRadius:10,
-              background:'#fee2e2', color:'#dc2626' }}>
+            <span style={{ fontSize:11, fontWeight:700, padding:'2px 7px', borderRadius:9999,
+              background:'#FEE2E2', color:'#991B1B' }}>
               {allNCs.length}
             </span>
           </button>
         </div>
 
-        {/* Fix 1: grey page background, cards float on it */}
-        <div style={{ flex:1, overflowY:'auto', background:'#f8f9fa' }}>
+        {/* Right content area */}
+        <div style={{ flex:1, overflowY:'auto', background:'#F4F6F8' }}>
           {ncView
             ? <_NCView
                 allNCs={allNCs}
