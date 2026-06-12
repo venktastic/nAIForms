@@ -8,6 +8,7 @@ function SortIcon({ col, sortCol, sortDir }) {
 function ScreenLibrary({ onOpen, onNew }) {
   const [q, setQ]             = useState('');
   const [forms, setForms]     = useState(window.FORM_LIST);
+  const [detailSub, setDetailSub] = useState(null);
   const [manageFormId, setManageFormId] = useState(null);
   const [confirmModal, setConfirmModal] = useState(null);
   const [publishForm,  setPublishForm]  = useState(null);
@@ -118,6 +119,18 @@ function ScreenLibrary({ onOpen, onNew }) {
   function sort(col) {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortCol(col); setSortDir('asc'); }
+  }
+
+  // ── inspection submission detail ──────────────────────────────────────────
+  if (detailSub) {
+    return (
+      <>
+        <TopBar crumbs={['Workflows', detailSub.topic, 'Submission Detail']} actions={
+          <Btn variant="ghost" onClick={() => setDetailSub(null)}>← Workflows</Btn>
+        }/>
+        <InspectionDetailScreen submission={detailSub} onBack={() => setDetailSub(null)}/>
+      </>
+    );
   }
 
   // ── manage detail view ────────────────────────────────────────────────────
@@ -364,7 +377,19 @@ function ScreenLibrary({ onOpen, onNew }) {
                   <td style={tdS({ fontFamily:'var(--font-mono)', fontSize:11.5, color:'var(--n-500)', whiteSpace:'nowrap' })}>{f.id}</td>
                   <td style={tdS()}>
                     <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-                      <span style={{ fontWeight:500 }}>{f.name}</span>
+                      <span
+                        style={{ fontWeight:500, cursor: (f.type==='Inspection'||f.type==='Audit') ? 'pointer' : 'default',
+                          color: (f.type==='Inspection'||f.type==='Audit') ? 'var(--brand-700,#1d4ed8)' : 'var(--n-800)' }}
+                        title={(f.type==='Inspection'||f.type==='Audit') ? 'View submission' : undefined}
+                        onClick={e => {
+                          if (f.type==='Inspection'||f.type==='Audit') {
+                            e.stopPropagation();
+                            const base = window.SAMPLE_INSP_SUBMISSION || {};
+                            setDetailSub({ ...base, topic: f.name, conductedBy: f.owner });
+                          }
+                        }}>
+                        {f.name}
+                      </span>
                       <button title="Duplicate" onClick={e => { e.stopPropagation(); doDuplicate(f); }}
                         style={{ background:'none', border:'none', cursor:'pointer', color:'var(--n-300)',
                           fontSize:13, padding:'1px 4px', borderRadius:4, lineHeight:1, flexShrink:0 }}

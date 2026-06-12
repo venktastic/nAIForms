@@ -1,0 +1,533 @@
+// Inspection submission detail screen
+const { useState } = React;
+
+// ── Embedded sample submission ────────────────────────────────────────────────
+const _INSP_SAMPLE = {
+  id: 'DEMINS21', topic: 'Fire Surveillance', type: 'Adhoc',
+  conductedBy: 'Rakesh Hirani', conductedOn: '20 Apr 2026, 10:10 AM',
+  conductedAt: 'Dubai', score: 72,
+  sections: [
+    { id:'s1', name:'Fire', score:100, location:'Block A, Ground Floor',
+      questions:[
+        { id:'q1', num:1, text:'Is a suitable and sufficient Fire Risk Assessment available for the area which is approved and remains valid for the current tasks and environment?', response:'Good Practice' },
+        { id:'q2', num:2, text:'Are sufficient fire escape routes, exits and assembly points provided?', response:'Good Practice' },
+        { id:'q3', num:3, text:'Have an appropriate number and type of fire/smoke/heat detection systems been installed in areas identified via the fire risk assessment?', response:'Good Practice' },
+        { id:'q4', num:4, text:'Are there appropriate arrangements for raising an effective audible alarm in the event of a fire event?', response:'Good Practice' },
+        { id:'q5', num:5, text:'Is there evidence that quantities of flammable materials held on site are kept at a minimum?', response:'Good Practice' },
+        { id:'q6', num:6, text:'Are flammable chemicals stored in appropriately sealable labelled container types?', response:'Good Practice' },
+        { id:'q7', num:7, text:'Are inventories of flammable materials held and maintained with Safety Data Sheets available?', response:'Good Practice' },
+        { id:'q8', num:8, text:'Is there evidence of fire prevention training being given to all workers?', response:'Good Practice' },
+      ]},
+    { id:'s2', name:'Hot Works', score:100,
+      questions:[
+        { id:'q9',  num:1, text:'Are hot work permits required and in use for all hot works on site?', response:'Good Practice' },
+        { id:'q10', num:2, text:'Are workers carrying out hot works competent and certified?', response:'Compliant' },
+      ]},
+    { id:'s3', name:'Gas Cylinders', score:100,
+      questions:[
+        { id:'q11', num:1, text:'Are gas cylinders (full and empty) stored in a secured compound/area that provides protection from the weather?', response:'Major Non Conformance',
+          ncr:{ assignedTo:'Prakash Senghani', status:'Open', hseInstructions:'Please fix' } },
+      ]},
+    { id:'s4', name:'Welding', score:60,
+      questions:[
+        { id:'q12', num:1, text:'Are welders and those working in their immediate vicinity provided with appropriate flame retardant PPE?', response:'Major Non Conformance',
+          ncr:{ assignedTo:'Surya Tej Kotamreddy', status:'Open', hseInstructions:'' } },
+        { id:'q13', num:2, text:'Is appropriate local or general ventilation provided in areas where welding activities are being undertaken?', response:'Major Non Conformance',
+          ncr:{ assignedTo:'Venkatesh Murthy', status:'Open', hseInstructions:'' } },
+        { id:'q14', num:3, text:'Are screens or other devices provided to prevent individuals working in close proximity being subject to arc radiation?', response:'Major Non Conformance',
+          ncr:{ assignedTo:null, status:null, hseInstructions:'' } },
+        { id:'q15', num:4, text:'Is there evidence that welding equipment is being inspected at least every 3 months by a competent person?', response:'Major Non Conformance',
+          ncr:{ assignedTo:null, status:null, hseInstructions:'' } },
+        { id:'q16', num:5, text:'Have all welding leads, electrode holders and return clamps been checked prior to use?', response:'Observation',
+          comment:'Minor fraying observed on one cable — flagged for replacement.' },
+      ]},
+    { id:'s5', name:'Smoking', score:100,
+      questions:[
+        { id:'q17', num:1, text:'Are designated smoking areas clearly marked and located away from flammable materials?', response:'Compliant' },
+      ]},
+    { id:'s6', name:'Emergency Preparedness & Response', score:0,
+      questions:[
+        { id:'q18', num:1, text:'Are emergency response procedures documented and communicated to all site personnel?', response:'Major Non Conformance',
+          ncr:{ assignedTo:null, status:null, hseInstructions:'' } },
+      ]},
+  ]
+};
+window.SAMPLE_INSP_SUBMISSION = _INSP_SAMPLE;
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function _scoreColor(pct) {
+  if (pct === 100) return '#10b981';
+  if (pct >= 50)   return '#f59e0b';
+  return '#ef4444';
+}
+function _pillStyle(response) {
+  const map = {
+    'Good Practice':         { bg:'#10b981', color:'#fff' },
+    'Compliant':             { bg:'#22c55e', color:'#fff' },
+    'Yes':                   { bg:'#10b981', color:'#fff' },
+    'Observation':           { bg:'#f59e0b', color:'#fff' },
+    'Minor Non Conformance': { bg:'#f97316', color:'#fff' },
+    'Major Non Conformance': { bg:'#ef4444', color:'#fff' },
+    'No':                    { bg:'#ef4444', color:'#fff' },
+    'NA':                    { bg:'#94a3b8', color:'#fff' },
+  };
+  return map[response] || { bg:'#94a3b8', color:'#fff' };
+}
+function _statusColor(s) {
+  return s === 'Open' ? '#ef4444' : s === 'Rectified' ? '#f59e0b' : s === 'Closed' ? '#10b981' : '#94a3b8';
+}
+function _initials(name) {
+  if (!name) return '?';
+  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+}
+
+const _ASSIGNEES = ['Prakash Senghani','Surya Tej Kotamreddy','Venkatesh Murthy','Rakesh Hirani','Arun Kumar','Ahmed Al-Rashid'];
+
+// ── QuestionCard ──────────────────────────────────────────────────────────────
+function _QuestionCard({ q }) {
+  const pill = _pillStyle(q.response);
+  const imgs = q.images || [];
+  return (
+    <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, padding:16 }}>
+      <div style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:10 }}>
+        {q.num != null && (
+          <span style={{ fontSize:11, color:'#94a3b8', minWidth:22, marginTop:2, fontVariantNumeric:'tabular-nums' }}>Q{q.num}</span>
+        )}
+        <span style={{ fontSize:14, fontWeight:500, color:'#0f172a', lineHeight:1.5, flex:1 }}>{q.text}</span>
+      </div>
+      <div style={{ display:'inline-block', padding:'5px 14px', borderRadius:20, fontSize:13, fontWeight:600,
+        background:pill.bg, color:pill.color }}>
+        {q.response}
+      </div>
+      {q.comment && (
+        <div style={{ fontSize:12, color:'#475569', marginTop:8, display:'flex', gap:6, alignItems:'flex-start',
+          background:'#f8fafc', padding:'7px 10px', borderRadius:6 }}>
+          <span style={{ flexShrink:0 }}>💬</span>
+          <span>{q.comment}</span>
+        </div>
+      )}
+      {imgs.length > 0 && (
+        <div style={{ display:'flex', gap:6, marginTop:10, flexWrap:'wrap' }}>
+          {imgs.slice(0, 3).map((src, i) => (
+            <div key={i} style={{ width:56, height:56, borderRadius:6, background:'#e2e8f0', overflow:'hidden', border:'1px solid #e2e8f0' }}>
+              <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+            </div>
+          ))}
+          {imgs.length > 3 && (
+            <div style={{ width:56, height:56, borderRadius:6, background:'#f1f5f9', border:'1px solid #e2e8f0',
+              display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, color:'#64748b', fontWeight:600 }}>
+              +{imgs.length - 3}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── SectionView ───────────────────────────────────────────────────────────────
+function _SectionView({ section, tab, setTab }) {
+  if (!section) return (
+    <div style={{ padding:48, textAlign:'center', color:'#94a3b8', fontSize:13 }}>No section selected.</div>
+  );
+
+  const additionalTypes = ['text','long-text','number','date-time'];
+  const additionalQs = section.questions.filter(q => additionalTypes.includes(q.fieldType));
+
+  return (
+    <div>
+      {/* Per-section location */}
+      {section.location && (
+        <div style={{ padding:'10px 20px', background:'#eff6ff', borderBottom:'1px solid #bfdbfe',
+          display:'flex', alignItems:'center', gap:8, fontSize:13, color:'#1d4ed8', fontWeight:500 }}>
+          📍 <span>{section.location}</span>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div style={{ display:'flex', padding:'0 20px', borderBottom:'1px solid #e2e8f0', background:'#fff' }}>
+        {[['responses','Responses'],['additional','Additional Data']].map(([key, label]) => (
+          <button key={key} onClick={() => setTab(key)}
+            style={{ padding:'11px 16px', border:'none', background:'transparent',
+              borderBottom:`2px solid ${tab === key ? '#3b82f6' : 'transparent'}`,
+              color: tab === key ? '#1d4ed8' : '#64748b', fontSize:13,
+              fontWeight: tab === key ? 600 : 400, cursor:'pointer' }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ padding:20, display:'flex', flexDirection:'column', gap:10 }}>
+        {tab === 'responses' ? (
+          section.questions.length === 0
+            ? <div style={{ padding:40, textAlign:'center', color:'#94a3b8', fontSize:13 }}>No questions in this section.</div>
+            : section.questions.map(q => <_QuestionCard key={q.id} q={q}/>)
+        ) : (
+          additionalQs.length === 0
+            ? <div style={{ padding:40, textAlign:'center', color:'#94a3b8', fontSize:13 }}>No additional data for this section.</div>
+            : additionalQs.map(q => (
+                <div key={q.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+                  padding:'10px 0', borderBottom:'1px solid #f1f5f9', fontSize:13 }}>
+                  <span style={{ color:'#64748b' }}>{q.text}</span>
+                  <span style={{ fontWeight:500, color:'#1e293b', maxWidth:'50%', textAlign:'right' }}>{q.value || '—'}</span>
+                </div>
+              ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── NCView ────────────────────────────────────────────────────────────────────
+function _NCView({ allNCs, ncData, checked, setChecked, onEditSingle, onBulkAssign }) {
+  const [expandedInstr, setExpandedInstr] = useState(new Set());
+
+  function toggle(id) {
+    setChecked(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  return (
+    <div style={{ padding:20, display:'flex', flexDirection:'column', gap:10 }}>
+      {allNCs.length === 0 && (
+        <div style={{ padding:48, textAlign:'center', color:'#94a3b8', fontSize:13 }}>No non-conformances recorded.</div>
+      )}
+
+      {allNCs.map(q => {
+        const live = ncData[q.id] || {};
+        const pillBg = q.response === 'Major Non Conformance' ? '#ef4444' : '#f97316';
+        const instr = live.hseInstructions || '';
+        const isLong = instr.length > 80;
+        const expanded = expandedInstr.has(q.id);
+
+        return (
+          <div key={q.id} style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10,
+            padding:'14px 16px', display:'flex', gap:10, position:'relative' }}>
+            <input type="checkbox" checked={checked.has(q.id)} onChange={() => toggle(q.id)}
+              style={{ marginTop:4, cursor:'pointer', flexShrink:0 }}/>
+            <div style={{ flex:1, minWidth:0, paddingRight:32 }}>
+              {/* Meta */}
+              <div style={{ fontSize:11, color:'#94a3b8', marginBottom:4 }}>
+                Q{q.num} · <span style={{ color:'#64748b' }}>{q.sectionName}</span>
+              </div>
+              {/* Question text */}
+              <div style={{ fontSize:14, fontWeight:500, color:'#0f172a', lineHeight:1.5, marginBottom:10 }}>{q.text}</div>
+              {/* Compliance + assignee row */}
+              <div style={{ display:'flex', flexWrap:'wrap', gap:8, alignItems:'center' }}>
+                <span style={{ padding:'4px 14px', borderRadius:20, fontSize:12, fontWeight:700,
+                  background:pillBg, color:'#fff' }}>{q.response}</span>
+                {live.assignedTo ? (
+                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <div style={{ width:26, height:26, borderRadius:'50%', background:'#dbeafe',
+                      color:'#1d4ed8', fontSize:10, fontWeight:700,
+                      display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      {_initials(live.assignedTo)}
+                    </div>
+                    <span style={{ fontSize:12, color:'#334155' }}>{live.assignedTo}</span>
+                    {live.status && (
+                      <span style={{ fontSize:11, padding:'2px 8px', borderRadius:10, fontWeight:600,
+                        background: _statusColor(live.status) + '20', color: _statusColor(live.status) }}>
+                        {live.status}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span style={{ fontSize:12, color:'#94a3b8', fontStyle:'italic' }}>Unassigned</span>
+                )}
+              </div>
+              {/* HSE Instructions */}
+              {instr ? (
+                <div style={{ marginTop:8, fontSize:12, color:'#475569', background:'#f8fafc',
+                  padding:'8px 10px', borderRadius:6, borderLeft:'3px solid #e2e8f0', lineHeight:1.5 }}>
+                  {isLong && !expanded ? instr.slice(0, 80) + '…' : instr}
+                  {isLong && (
+                    <button onClick={() => setExpandedInstr(p => {
+                        const n = new Set(p); if (n.has(q.id)) n.delete(q.id); else n.add(q.id); return n;
+                      })}
+                      style={{ background:'none', border:'none', color:'#2563eb', fontSize:11,
+                        cursor:'pointer', marginLeft:4, padding:0, fontWeight:600 }}>
+                      {expanded ? 'Show less' : 'Show more'}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                live.assignedTo ? null :
+                <div style={{ marginTop:8 }}>
+                  <button onClick={() => onEditSingle(q.id, live)}
+                    style={{ background:'none', border:'none', fontSize:12, color:'#2563eb',
+                      cursor:'pointer', padding:0, textDecoration:'underline' }}>
+                    + Add instructions
+                  </button>
+                </div>
+              )}
+            </div>
+            {/* Edit button */}
+            <button onClick={() => onEditSingle(q.id, live)}
+              style={{ position:'absolute', top:12, right:12, background:'none',
+                border:'1px solid #e2e8f0', borderRadius:6, cursor:'pointer',
+                padding:'4px 7px', fontSize:13, color:'#2563eb', lineHeight:1 }}
+              title="Edit NC assignment">
+              ✏
+            </button>
+          </div>
+        );
+      })}
+
+      {/* Bulk action bar */}
+      {checked.size > 0 && (
+        <div style={{ marginTop:4, padding:'12px 16px', background:'#fff',
+          border:'1px solid #93c5fd', borderRadius:10, display:'flex', alignItems:'center', gap:12,
+          boxShadow:'0 2px 8px rgba(37,99,235,0.10)' }}>
+          <span style={{ fontSize:13, color:'#334155', fontWeight:500 }}>{checked.size} selected</span>
+          <Btn variant="primary" size="sm" onClick={onBulkAssign}>Bulk assign</Btn>
+          <button onClick={() => setChecked(new Set())}
+            style={{ background:'none', border:'none', fontSize:12, color:'#64748b',
+              cursor:'pointer', textDecoration:'underline', padding:0 }}>
+            Clear selection
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── AssignDrawer ──────────────────────────────────────────────────────────────
+function _AssignDrawer({ mode, ncId, ncCount, ncText, initial, onSave, onClose }) {
+  const [form, setForm] = useState({
+    assignedTo: initial?.assignedTo || '',
+    status:     initial?.status     || 'Open',
+    hseInstructions: initial?.hseInstructions || '',
+  });
+
+  const canSave = mode === 'bulk'
+    ? true
+    : !!form.hseInstructions.trim();
+
+  return (
+    <>
+      <div onClick={onClose}
+        style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.25)', zIndex:200 }}/>
+      <div style={{ position:'fixed', top:0, right:0, bottom:0, width:400,
+        background:'#fff', boxShadow:'-4px 0 32px rgba(0,0,0,0.14)', zIndex:201,
+        display:'flex', flexDirection:'column', fontFamily:'var(--font-sans)' }}>
+
+        {/* Header */}
+        <div style={{ padding:'20px 24px', borderBottom:'1px solid #e2e8f0' }}>
+          <div style={{ fontSize:16, fontWeight:700, color:'#0f172a' }}>
+            {mode === 'bulk' ? `Bulk assign — ${ncCount} non-conformances` : 'Assign NC'}
+          </div>
+          {mode === 'single' && ncText && (
+            <div style={{ fontSize:12, color:'#64748b', marginTop:4,
+              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              {ncText}
+            </div>
+          )}
+        </div>
+
+        {/* Body */}
+        <div style={{ flex:1, overflowY:'auto', padding:24, display:'flex', flexDirection:'column', gap:16 }}>
+          <div>
+            <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#334155', marginBottom:6 }}>Assign To</label>
+            <select className="input" value={form.assignedTo}
+              onChange={e => setForm(f => ({ ...f, assignedTo:e.target.value }))}
+              style={{ fontSize:13 }}>
+              <option value="">— Select assignee —</option>
+              {_ASSIGNEES.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#334155', marginBottom:6 }}>Status</label>
+            <select className="input" value={form.status}
+              onChange={e => setForm(f => ({ ...f, status:e.target.value }))}
+              style={{ fontSize:13 }}>
+              <option value="Open">Open</option>
+              <option value="Rectified">Rectified</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </div>
+          {mode === 'single' && (
+            <div>
+              <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#334155', marginBottom:6 }}>
+                HSE Instructions <span style={{ color:'#ef4444' }}>*</span>
+              </label>
+              <textarea className="input" rows={5}
+                value={form.hseInstructions}
+                onChange={e => setForm(f => ({ ...f, hseInstructions:e.target.value }))}
+                placeholder="Enter HSE instructions…"
+                style={{ fontSize:13, resize:'vertical', minHeight:100 }}/>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding:'16px 24px', borderTop:'1px solid #e2e8f0',
+          display:'flex', gap:8, justifyContent:'flex-end' }}>
+          <Btn onClick={onClose}>Discard</Btn>
+          <Btn variant="primary" disabled={!canSave} onClick={() => onSave(form)}>
+            {mode === 'bulk' ? `Assign ${ncCount} NCs` : 'Save'}
+          </Btn>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+function InspectionDetailScreen({ submission, onBack }) {
+  const sub = submission || _INSP_SAMPLE;
+
+  const allNCs = sub.sections.flatMap(s =>
+    s.questions.filter(q => q.ncr).map(q => ({ ...q, sectionName: s.name }))
+  );
+
+  const [activeSection, setActive] = useState(sub.sections[0]?.id || null);
+  const [ncView,  setNcView]       = useState(false);
+  const [tab,     setTab]          = useState('responses');
+  const [checked, setChecked]      = useState(new Set());
+  const [drawer,  setDrawer]       = useState(null);
+  const [ncData,  setNcData]       = useState(() => {
+    const m = {};
+    allNCs.forEach(q => { m[q.id] = { ...(q.ncr || {}) }; });
+    return m;
+  });
+
+  const currentSec = sub.sections.find(s => s.id === activeSection);
+  const circleColor = _scoreColor(sub.score);
+
+  function openDrawerSingle(ncId, existingNcr) {
+    setDrawer({ mode:'single', ncId, text: allNCs.find(q => q.id === ncId)?.text || '' });
+  }
+  function openDrawerBulk() {
+    setDrawer({ mode:'bulk' });
+  }
+  function saveDrawer(form) {
+    if (drawer.mode === 'single') {
+      setNcData(d => ({ ...d, [drawer.ncId]: { ...(d[drawer.ncId]||{}), ...form } }));
+    } else {
+      setNcData(d => {
+        const next = { ...d };
+        checked.forEach(id => { next[id] = { ...(next[id]||{}), assignedTo: form.assignedTo, status: form.status }; });
+        return next;
+      });
+      setChecked(new Set());
+    }
+    setDrawer(null);
+  }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', minHeight:'100%', fontFamily:'var(--font-sans)', position:'relative' }}>
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div style={{ padding:'14px 24px', borderBottom:'1px solid #e2e8f0', background:'#fff',
+        display:'flex', alignItems:'flex-start', gap:12, flexShrink:0 }}>
+        <button onClick={onBack}
+          style={{ background:'none', border:'none', cursor:'pointer', fontSize:22, color:'#64748b',
+            padding:'0 6px', borderRadius:6, lineHeight:1, marginTop:2, flexShrink:0 }}>
+          ‹
+        </button>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:5, flexWrap:'wrap' }}>
+            <span style={{ fontSize:18, fontWeight:500, color:'#0f172a' }}>{sub.topic}</span>
+            <span style={{ fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:12,
+              background:'#f1f5f9', color:'#475569', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+              {sub.type}
+            </span>
+          </div>
+          <div style={{ fontSize:13, color:'#64748b', display:'flex', flexWrap:'wrap', gap:0, lineHeight:1.8 }}>
+            <span>Conducted by:&nbsp;<strong style={{ color:'#334155', fontWeight:500 }}>{sub.conductedBy}</strong></span>
+            <span style={{ margin:'0 10px', color:'#cbd5e1' }}>·</span>
+            <span>Conducted on:&nbsp;<strong style={{ color:'#334155', fontWeight:500 }}>{sub.conductedOn}</strong></span>
+            <span style={{ margin:'0 10px', color:'#cbd5e1' }}>·</span>
+            {sub.conductedAt
+              ? <span>📍&nbsp;<strong style={{ color:'#334155', fontWeight:500 }}>{sub.conductedAt}</strong></span>
+              : <span style={{ color:'#94a3b8', fontStyle:'italic' }}>Location not recorded</span>}
+          </div>
+        </div>
+        {/* Score circle */}
+        <div style={{ width:58, height:58, borderRadius:'50%', border:`4px solid ${circleColor}`,
+          display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+          <span style={{ fontSize:14, fontWeight:700, color:circleColor }}>{sub.score}%</span>
+        </div>
+      </div>
+
+      {/* ── Body ───────────────────────────────────────────────────────────── */}
+      <div style={{ display:'flex', flex:1, overflow:'hidden', minHeight:0 }}>
+
+        {/* Sidebar */}
+        <div style={{ width:250, borderRight:'1px solid #e2e8f0', background:'#f8fafc',
+          overflowY:'auto', flexShrink:0 }}>
+          {sub.sections.map(s => {
+            const isActive = !ncView && activeSection === s.id;
+            const sc = _scoreColor(s.score);
+            return (
+              <button key={s.id}
+                onClick={() => { setNcView(false); setActive(s.id); setTab('responses'); }}
+                style={{ width:'100%', padding:'11px 16px', border:'none',
+                  borderBottom:'1px solid #f1f5f9',
+                  background: isActive ? '#2563eb' : 'transparent',
+                  color: isActive ? '#fff' : '#1e293b',
+                  cursor:'pointer', display:'flex', justifyContent:'space-between',
+                  alignItems:'center', textAlign:'left', fontSize:13,
+                  fontWeight: isActive ? 600 : 400 }}>
+                <span style={{ flex:1, lineHeight:1.4, marginRight:8 }}>{s.name}</span>
+                <span style={{ fontSize:12, fontWeight:700, flexShrink:0,
+                  color: isActive ? 'rgba(255,255,255,0.85)' : sc }}>
+                  {s.score}%
+                </span>
+              </button>
+            );
+          })}
+          {/* NC tab */}
+          <button onClick={() => { setNcView(true); setChecked(new Set()); }}
+            style={{ width:'100%', padding:'11px 16px', border:'none',
+              borderBottom:'1px solid #f1f5f9',
+              background: ncView ? '#2563eb' : 'transparent',
+              color: ncView ? '#fff' : '#ef4444',
+              cursor:'pointer', display:'flex', justifyContent:'space-between',
+              alignItems:'center', textAlign:'left', fontSize:13,
+              fontWeight: 600 }}>
+            <span>Non Conformance</span>
+            <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:10,
+              background: ncView ? 'rgba(255,255,255,0.2)' : '#fef2f2',
+              color: ncView ? '#fff' : '#ef4444' }}>
+              {allNCs.length}
+            </span>
+          </button>
+        </div>
+
+        {/* Main content */}
+        <div style={{ flex:1, overflowY:'auto' }}>
+          {ncView
+            ? <_NCView
+                allNCs={allNCs}
+                ncData={ncData}
+                checked={checked}
+                setChecked={setChecked}
+                onEditSingle={openDrawerSingle}
+                onBulkAssign={openDrawerBulk}/>
+            : <_SectionView
+                section={currentSec}
+                tab={tab}
+                setTab={setTab}/>}
+        </div>
+      </div>
+
+      {/* ── Assign Drawer ──────────────────────────────────────────────────── */}
+      {drawer && (
+        <_AssignDrawer
+          mode={drawer.mode}
+          ncId={drawer.ncId}
+          ncCount={checked.size}
+          ncText={drawer.text}
+          initial={drawer.mode === 'single' ? ncData[drawer.ncId] : null}
+          onSave={saveDrawer}
+          onClose={() => setDrawer(null)}/>
+      )}
+    </div>
+  );
+}
+
+Object.assign(window, { InspectionDetailScreen });
