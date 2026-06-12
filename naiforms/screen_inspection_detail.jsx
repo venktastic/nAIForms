@@ -2,6 +2,7 @@
 const { useState } = React;
 
 // ── Embedded sample submission ────────────────────────────────────────────────
+// images: array of hex colour strings = placeholder thumbnails (no real URLs needed)
 const _INSP_SAMPLE = {
   id: 'DEMINS21', topic: 'Fire Surveillance', type: 'Adhoc',
   conductedBy: 'Rakesh Hirani', conductedOn: '20 Apr 2026, 10:10 AM',
@@ -9,45 +10,76 @@ const _INSP_SAMPLE = {
   sections: [
     { id:'s1', name:'Fire', score:100, location:'Block A, Ground Floor',
       questions:[
-        { id:'q1', num:1, text:'Is a suitable and sufficient Fire Risk Assessment available for the area which is approved and remains valid for the current tasks and environment?', response:'Good Practice' },
-        { id:'q2', num:2, text:'Are sufficient fire escape routes, exits and assembly points provided?', response:'Good Practice' },
-        { id:'q3', num:3, text:'Have an appropriate number and type of fire/smoke/heat detection systems been installed in areas identified via the fire risk assessment?', response:'Good Practice' },
-        { id:'q4', num:4, text:'Are there appropriate arrangements for raising an effective audible alarm in the event of a fire event?', response:'Good Practice' },
-        { id:'q5', num:5, text:'Is there evidence that quantities of flammable materials held on site are kept at a minimum?', response:'Good Practice' },
-        { id:'q6', num:6, text:'Are flammable chemicals stored in appropriately sealable labelled container types?', response:'Good Practice' },
-        { id:'q7', num:7, text:'Are inventories of flammable materials held and maintained with Safety Data Sheets available?', response:'Good Practice' },
-        { id:'q8', num:8, text:'Is there evidence of fire prevention training being given to all workers?', response:'Good Practice' },
+        { id:'q1', num:1, text:'Is a suitable and sufficient Fire Risk Assessment available for the area which is approved and remains valid for the current tasks and environment?',
+          response:'Good Practice', comment:'Fire Risk Assessment dated March 2026 is available and signed off by the site HSE manager.', images:['#4ade80','#86efac'] },
+        { id:'q2', num:2, text:'Are sufficient fire escape routes, exits and assembly points provided?',
+          response:'Good Practice', comment:'Three clearly marked exit routes confirmed. Assembly point at north gate.', images:['#4ade80'] },
+        { id:'q3', num:3, text:'Have an appropriate number and type of fire/smoke/heat detection systems been installed in areas identified via the fire risk assessment?',
+          response:'Good Practice', comment:'', images:['#4ade80','#86efac','#6ee7b7'] },
+        { id:'q4', num:4, text:'Are there appropriate arrangements for raising an effective audible alarm in the event of a fire event?',
+          response:'Good Practice', comment:'Alarm tested last week, all zones operational.', images:[] },
+        { id:'q5', num:5, text:'Is there evidence that quantities of flammable materials held on site are kept at a minimum?',
+          response:'Good Practice', comment:'', images:[] },
+        { id:'q6', num:6, text:'Are flammable chemicals stored in appropriately sealable labelled container types?',
+          response:'Good Practice', comment:'Containers labelled with GHS symbols. Storage log maintained.', images:['#4ade80'] },
+        { id:'q7', num:7, text:'Are inventories of flammable materials held and maintained with Safety Data Sheets available?',
+          response:'Good Practice', comment:'SDS binder available at store entrance. Last updated 01 Apr 2026.', images:[] },
+        { id:'q8', num:8, text:'Is there evidence of fire prevention training being given to all workers?',
+          response:'Good Practice', comment:'Training register reviewed — 97% completion rate.', images:['#4ade80','#86efac'] },
       ]},
     { id:'s2', name:'Hot Works', score:100,
       questions:[
-        { id:'q9',  num:1, text:'Are hot work permits required and in use for all hot works on site?', response:'Good Practice' },
-        { id:'q10', num:2, text:'Are workers carrying out hot works competent and certified?', response:'Compliant' },
+        { id:'q9',  num:1, text:'Are hot work permits required and in use for all hot works on site?',
+          response:'Good Practice', comment:'Hot work permit #HW-0421 active in welding bay.', images:['#fbbf24'] },
+        { id:'q10', num:2, text:'Are workers carrying out hot works competent and certified?',
+          response:'Compliant', comment:'Certification cards sighted for all 4 welders on shift.', images:[] },
       ]},
     { id:'s3', name:'Gas Cylinders', score:100,
       questions:[
-        { id:'q11', num:1, text:'Are gas cylinders (full and empty) stored in a secured compound/area that provides protection from the weather?', response:'Major Non Conformance',
+        { id:'q11', num:1, text:'Are gas cylinders (full and empty) stored in a secured compound/area that provides protection from the weather?',
+          response:'Major Non Conformance',
+          comment:'Cylinders found stored outdoors without cover, chained together but no weather protection. Immediate corrective action required.',
+          images:['#f87171','#fca5a5'],
           ncr:{ assignedTo:'Prakash Senghani', status:'Open', hseInstructions:'Please fix' } },
       ]},
     { id:'s4', name:'Welding', score:60,
       questions:[
-        { id:'q12', num:1, text:'Are welders and those working in their immediate vicinity provided with appropriate flame retardant PPE?', response:'Major Non Conformance',
+        { id:'q12', num:1, text:'Are welders and those working in their immediate vicinity provided with appropriate flame retardant PPE?',
+          response:'Major Non Conformance',
+          comment:'Two workers observed without flame-retardant jackets. Standard overalls only.',
+          images:['#f87171'],
           ncr:{ assignedTo:'Surya Tej Kotamreddy', status:'Open', hseInstructions:'' } },
-        { id:'q13', num:2, text:'Is appropriate local or general ventilation provided in areas where welding activities are being undertaken?', response:'Major Non Conformance',
+        { id:'q13', num:2, text:'Is appropriate local or general ventilation provided in areas where welding activities are being undertaken?',
+          response:'Major Non Conformance',
+          comment:'Extraction fan unit in welding bay found non-operational. Area has no natural ventilation.',
+          images:['#f87171','#fca5a5','#fecaca'],
           ncr:{ assignedTo:'Venkatesh Murthy', status:'Open', hseInstructions:'' } },
-        { id:'q14', num:3, text:'Are screens or other devices provided to prevent individuals working in close proximity being subject to arc radiation?', response:'Major Non Conformance',
+        { id:'q14', num:3, text:'Are screens or other devices provided to prevent individuals working in close proximity being subject to arc radiation?',
+          response:'Major Non Conformance',
+          comment:'No arc screens or curtains in place around active welding stations.',
+          images:['#f87171'],
           ncr:{ assignedTo:null, status:null, hseInstructions:'' } },
-        { id:'q15', num:4, text:'Is there evidence that welding equipment is being inspected at least every 3 months by a competent person?', response:'Major Non Conformance',
+        { id:'q15', num:4, text:'Is there evidence that welding equipment is being inspected at least every 3 months by a competent person?',
+          response:'Major Non Conformance',
+          comment:'Last inspection record dated November 2025 — overdue by approximately 5 months.',
+          images:[],
           ncr:{ assignedTo:null, status:null, hseInstructions:'' } },
-        { id:'q16', num:5, text:'Have all welding leads, electrode holders and return clamps been checked prior to use?', response:'Observation',
-          comment:'Minor fraying observed on one cable — flagged for replacement.' },
+        { id:'q16', num:5, text:'Have all welding leads, electrode holders and return clamps been checked prior to use?',
+          response:'Observation',
+          comment:'Minor fraying observed on one cable — flagged for replacement. Work can continue with replacement cable.',
+          images:['#fb923c'] },
       ]},
     { id:'s5', name:'Smoking', score:100,
       questions:[
-        { id:'q17', num:1, text:'Are designated smoking areas clearly marked and located away from flammable materials?', response:'Compliant' },
+        { id:'q17', num:1, text:'Are designated smoking areas clearly marked and located away from flammable materials?',
+          response:'Compliant', comment:'Smoking shelter located 40m from storage area. Signage visible and maintained.', images:['#4ade80'] },
       ]},
     { id:'s6', name:'Emergency Preparedness & Response', score:0,
       questions:[
-        { id:'q18', num:1, text:'Are emergency response procedures documented and communicated to all site personnel?', response:'Major Non Conformance',
+        { id:'q18', num:1, text:'Are emergency response procedures documented and communicated to all site personnel?',
+          response:'Major Non Conformance',
+          comment:'Emergency response plan not displayed at site. Site supervisor unaware of current muster point.',
+          images:['#f87171'],
           ncr:{ assignedTo:null, status:null, hseInstructions:'' } },
       ]},
   ]
@@ -84,43 +116,70 @@ function _initials(name) {
 const _ASSIGNEES = ['Prakash Senghani','Surya Tej Kotamreddy','Venkatesh Murthy','Rakesh Hirani','Arun Kumar','Ahmed Al-Rashid'];
 
 // ── QuestionCard ──────────────────────────────────────────────────────────────
+// images: array of hex colour strings used as placeholder thumbnails
 function _QuestionCard({ q }) {
   const pill = _pillStyle(q.response);
   const imgs = q.images || [];
+  const hasComment = q.comment && q.comment.trim().length > 0;
+
   return (
     <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, padding:16 }}>
-      <div style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:10 }}>
+      {/* Question text */}
+      <div style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:12 }}>
         {q.num != null && (
-          <span style={{ fontSize:11, color:'#94a3b8', minWidth:22, marginTop:2, fontVariantNumeric:'tabular-nums' }}>Q{q.num}</span>
+          <span style={{ fontSize:11, color:'#94a3b8', minWidth:22, marginTop:2, fontVariantNumeric:'tabular-nums', flexShrink:0 }}>Q{q.num}</span>
         )}
         <span style={{ fontSize:14, fontWeight:500, color:'#0f172a', lineHeight:1.5, flex:1 }}>{q.text}</span>
       </div>
-      <div style={{ display:'inline-block', padding:'5px 14px', borderRadius:20, fontSize:13, fontWeight:600,
-        background:pill.bg, color:pill.color }}>
-        {q.response}
+
+      {/* Response pill */}
+      <div style={{ marginBottom:12 }}>
+        <div style={{ display:'inline-block', padding:'5px 16px', borderRadius:20, fontSize:13, fontWeight:600,
+          background:pill.bg, color:pill.color }}>
+          {q.response}
+        </div>
       </div>
-      {q.comment && (
-        <div style={{ fontSize:12, color:'#475569', marginTop:8, display:'flex', gap:6, alignItems:'flex-start',
-          background:'#f8fafc', padding:'7px 10px', borderRadius:6 }}>
-          <span style={{ flexShrink:0 }}>💬</span>
-          <span>{q.comment}</span>
+
+      {/* Comment — always shown */}
+      <div style={{ marginBottom:10 }}>
+        <div style={{ fontSize:11, fontWeight:600, color:'#94a3b8', letterSpacing:'0.04em',
+          textTransform:'uppercase', marginBottom:5 }}>Comment</div>
+        <div style={{ fontSize:13, color: hasComment ? '#334155' : '#cbd5e1',
+          background:'#f8fafc', padding:'8px 12px', borderRadius:6,
+          border:'1px solid #f1f5f9', lineHeight:1.6,
+          fontStyle: hasComment ? 'normal' : 'italic' }}>
+          {hasComment ? q.comment : 'No comment added'}
         </div>
-      )}
-      {imgs.length > 0 && (
-        <div style={{ display:'flex', gap:6, marginTop:10, flexWrap:'wrap' }}>
-          {imgs.slice(0, 3).map((src, i) => (
-            <div key={i} style={{ width:56, height:56, borderRadius:6, background:'#e2e8f0', overflow:'hidden', border:'1px solid #e2e8f0' }}>
-              <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
-            </div>
-          ))}
-          {imgs.length > 3 && (
-            <div style={{ width:56, height:56, borderRadius:6, background:'#f1f5f9', border:'1px solid #e2e8f0',
-              display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, color:'#64748b', fontWeight:600 }}>
-              +{imgs.length - 3}
-            </div>
-          )}
-        </div>
-      )}
+      </div>
+
+      {/* Images — always shown */}
+      <div>
+        <div style={{ fontSize:11, fontWeight:600, color:'#94a3b8', letterSpacing:'0.04em',
+          textTransform:'uppercase', marginBottom:5 }}>Photos</div>
+        {imgs.length > 0 ? (
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+            {imgs.slice(0, 3).map((src, i) => (
+              <div key={i} style={{ width:64, height:64, borderRadius:8, overflow:'hidden',
+                border:'1px solid #e2e8f0', flexShrink:0,
+                background: src.startsWith('#') ? src : '#e2e8f0',
+                display:'flex', alignItems:'center', justifyContent:'center' }}>
+                {src.startsWith('#')
+                  ? <span style={{ fontSize:22, opacity:0.5 }}>📷</span>
+                  : <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>}
+              </div>
+            ))}
+            {imgs.length > 3 && (
+              <div style={{ width:64, height:64, borderRadius:8, background:'#f1f5f9',
+                border:'1px solid #e2e8f0', display:'flex', alignItems:'center',
+                justifyContent:'center', fontSize:13, color:'#64748b', fontWeight:700, flexShrink:0 }}>
+                +{imgs.length - 3}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ fontSize:13, color:'#cbd5e1', fontStyle:'italic' }}>No photos added</div>
+        )}
+      </div>
     </div>
   );
 }
