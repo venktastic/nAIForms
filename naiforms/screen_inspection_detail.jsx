@@ -92,18 +92,19 @@ function _scoreColor(pct) {
   if (pct >= 50)   return '#f59e0b';
   return '#ef4444';
 }
+// Fix 3: richer, more saturated pill colours
 function _pillStyle(response) {
   const map = {
-    'Good Practice':         { bg:'#10b981', color:'#fff' },
-    'Compliant':             { bg:'#22c55e', color:'#fff' },
-    'Yes':                   { bg:'#10b981', color:'#fff' },
-    'Observation':           { bg:'#f59e0b', color:'#fff' },
-    'Minor Non Conformance': { bg:'#f97316', color:'#fff' },
-    'Major Non Conformance': { bg:'#ef4444', color:'#fff' },
-    'No':                    { bg:'#ef4444', color:'#fff' },
-    'NA':                    { bg:'#94a3b8', color:'#fff' },
+    'Good Practice':         { bg:'#059669', color:'#fff' },
+    'Compliant':             { bg:'#16a34a', color:'#fff' },
+    'Yes':                   { bg:'#059669', color:'#fff' },
+    'Observation':           { bg:'#d97706', color:'#fff' },
+    'Minor Non Conformance': { bg:'#ea580c', color:'#fff' },
+    'Major Non Conformance': { bg:'#dc2626', color:'#fff' },
+    'No':                    { bg:'#dc2626', color:'#fff' },
+    'NA':                    { bg:'#64748b', color:'#fff' },
   };
-  return map[response] || { bg:'#94a3b8', color:'#fff' };
+  return map[response] || { bg:'#64748b', color:'#fff' };
 }
 function _statusColor(s) {
   return s === 'Open' ? '#ef4444' : s === 'Rectified' ? '#f59e0b' : s === 'Closed' ? '#10b981' : '#94a3b8';
@@ -115,70 +116,104 @@ function _initials(name) {
 
 const _ASSIGNEES = ['Prakash Senghani','Surya Tej Kotamreddy','Venkatesh Murthy','Rakesh Hirani','Arun Kumar','Ahmed Al-Rashid'];
 
+// ── ScoreBar ─────────────────────────────────────────────────────────────────
+// Fix 6: macro section health bar below the header
+function _ScoreBar({ sections }) {
+  const n = sections.length;
+  return (
+    <div style={{ padding:'10px 24px 8px', background:'#fff', borderBottom:'1px solid #e2e8f0' }}>
+      <div style={{ display:'flex', gap:2, height:7, borderRadius:4 }}>
+        {sections.map((s, i) => (
+          <div key={s.id} title={`${s.name}: ${s.score}%`}
+            style={{ flex:1, background:_scoreColor(s.score),
+              borderRadius: i===0 ? '4px 0 0 4px' : i===n-1 ? '0 4px 4px 0' : '0',
+              transition:'opacity 0.15s' }}/>
+        ))}
+      </div>
+      <div style={{ display:'flex', gap:2, marginTop:5 }}>
+        {sections.map(s => (
+          <div key={s.id} title={`${s.name}: ${s.score}%`}
+            style={{ flex:1, fontSize:9, color:'#94a3b8', overflow:'hidden',
+              textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign:'center' }}>
+            {s.name}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── QuestionCard ──────────────────────────────────────────────────────────────
-// images: array of hex colour strings used as placeholder thumbnails
+// Fix 3+4: prominent response pill, clear internal zones, shadow on grey bg
 function _QuestionCard({ q }) {
   const pill = _pillStyle(q.response);
   const imgs = q.images || [];
   const hasComment = q.comment && q.comment.trim().length > 0;
 
   return (
-    <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, padding:16 }}>
-      {/* Question text */}
-      <div style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:12 }}>
+    <div style={{ background:'#fff', border:'1px solid #e8ecf0', borderRadius:10,
+      padding:16, boxShadow:'0 1px 3px rgba(0,0,0,0.06)' }}>
+
+      {/* Zone 1: question identifier + text */}
+      <div style={{ marginBottom:14 }}>
         {q.num != null && (
-          <span style={{ fontSize:11, color:'#94a3b8', minWidth:22, marginTop:2, fontVariantNumeric:'tabular-nums', flexShrink:0 }}>Q{q.num}</span>
+          <div style={{ fontSize:10, fontWeight:700, color:'#94a3b8', letterSpacing:'0.08em',
+            textTransform:'uppercase', marginBottom:5 }}>Question {q.num}</div>
         )}
-        <span style={{ fontSize:14, fontWeight:500, color:'#0f172a', lineHeight:1.5, flex:1 }}>{q.text}</span>
+        <div style={{ fontSize:15, fontWeight:500, color:'#0f172a', lineHeight:1.6 }}>{q.text}</div>
       </div>
 
-      {/* Response pill */}
-      <div style={{ marginBottom:12 }}>
-        <div style={{ display:'inline-block', padding:'5px 16px', borderRadius:20, fontSize:13, fontWeight:600,
-          background:pill.bg, color:pill.color }}>
+      {/* Zone 2: response pill — fix 3, most prominent element */}
+      <div style={{ marginBottom:14, paddingBottom:14, borderBottom:'1px solid #f1f5f9' }}>
+        <div style={{ display:'inline-block', padding:'7px 20px', borderRadius:8, fontSize:14,
+          fontWeight:700, background:pill.bg, color:pill.color,
+          boxShadow:`0 2px 6px ${pill.bg}55`, letterSpacing:'0.01em' }}>
           {q.response}
         </div>
       </div>
 
-      {/* Comment — always shown */}
-      <div style={{ marginBottom:10 }}>
-        <div style={{ fontSize:11, fontWeight:600, color:'#94a3b8', letterSpacing:'0.04em',
-          textTransform:'uppercase', marginBottom:5 }}>Comment</div>
-        <div style={{ fontSize:13, color: hasComment ? '#334155' : '#cbd5e1',
-          background:'#f8fafc', padding:'8px 12px', borderRadius:6,
-          border:'1px solid #f1f5f9', lineHeight:1.6,
-          fontStyle: hasComment ? 'normal' : 'italic' }}>
-          {hasComment ? q.comment : 'No comment added'}
-        </div>
-      </div>
-
-      {/* Images — always shown */}
-      <div>
-        <div style={{ fontSize:11, fontWeight:600, color:'#94a3b8', letterSpacing:'0.04em',
-          textTransform:'uppercase', marginBottom:5 }}>Photos</div>
-        {imgs.length > 0 ? (
-          <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-            {imgs.slice(0, 3).map((src, i) => (
-              <div key={i} style={{ width:64, height:64, borderRadius:8, overflow:'hidden',
-                border:'1px solid #e2e8f0', flexShrink:0,
-                background: src.startsWith('#') ? src : '#e2e8f0',
-                display:'flex', alignItems:'center', justifyContent:'center' }}>
-                {src.startsWith('#')
-                  ? <span style={{ fontSize:22, opacity:0.5 }}>📷</span>
-                  : <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>}
-              </div>
-            ))}
-            {imgs.length > 3 && (
-              <div style={{ width:64, height:64, borderRadius:8, background:'#f1f5f9',
-                border:'1px solid #e2e8f0', display:'flex', alignItems:'center',
-                justifyContent:'center', fontSize:13, color:'#64748b', fontWeight:700, flexShrink:0 }}>
-                +{imgs.length - 3}
-              </div>
-            )}
+      {/* Zone 3: comment + photos */}
+      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        <div>
+          <div style={{ fontSize:10, fontWeight:700, color:'#94a3b8', letterSpacing:'0.08em',
+            textTransform:'uppercase', marginBottom:6 }}>Comment</div>
+          <div style={{ fontSize:13, color: hasComment ? '#334155' : '#c8d0da',
+            background: hasComment ? '#f8fafc' : 'transparent',
+            padding: hasComment ? '8px 12px' : 0,
+            borderRadius:6, border: hasComment ? '1px solid #eef0f4' : 'none',
+            lineHeight:1.6, fontStyle: hasComment ? 'normal' : 'italic' }}>
+            {hasComment ? q.comment : 'No comment added'}
           </div>
-        ) : (
-          <div style={{ fontSize:13, color:'#cbd5e1', fontStyle:'italic' }}>No photos added</div>
-        )}
+        </div>
+
+        <div>
+          <div style={{ fontSize:10, fontWeight:700, color:'#94a3b8', letterSpacing:'0.08em',
+            textTransform:'uppercase', marginBottom:6 }}>Photos</div>
+          {imgs.length > 0 ? (
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              {imgs.slice(0, 3).map((src, i) => (
+                <div key={i} style={{ width:72, height:72, borderRadius:8, flexShrink:0,
+                  background: src.startsWith('#') ? src : '#e2e8f0',
+                  border:'1px solid rgba(0,0,0,0.08)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  boxShadow:'0 1px 3px rgba(0,0,0,0.10)', overflow:'hidden' }}>
+                  {src.startsWith('#')
+                    ? <span style={{ fontSize:24, opacity:0.45 }}>📷</span>
+                    : <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>}
+                </div>
+              ))}
+              {imgs.length > 3 && (
+                <div style={{ width:72, height:72, borderRadius:8, background:'#f1f5f9',
+                  border:'1px solid #e2e8f0', display:'flex', alignItems:'center',
+                  justifyContent:'center', fontSize:13, color:'#64748b', fontWeight:700, flexShrink:0 }}>
+                  +{imgs.length - 3}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ fontSize:12, color:'#c8d0da', fontStyle:'italic' }}>No photos added</div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -216,7 +251,8 @@ function _SectionView({ section, tab, setTab }) {
         ))}
       </div>
 
-      <div style={{ padding:20, display:'flex', flexDirection:'column', gap:10 }}>
+      {/* Fix 1: grey background, cards float */}
+      <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12, background:'#f8f9fa', minHeight:'100%' }}>
         {tab === 'responses' ? (
           section.questions.length === 0
             ? <div style={{ padding:40, textAlign:'center', color:'#94a3b8', fontSize:13 }}>No questions in this section.</div>
@@ -224,13 +260,16 @@ function _SectionView({ section, tab, setTab }) {
         ) : (
           additionalQs.length === 0
             ? <div style={{ padding:40, textAlign:'center', color:'#94a3b8', fontSize:13 }}>No additional data for this section.</div>
-            : additionalQs.map(q => (
-                <div key={q.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
-                  padding:'10px 0', borderBottom:'1px solid #f1f5f9', fontSize:13 }}>
-                  <span style={{ color:'#64748b' }}>{q.text}</span>
-                  <span style={{ fontWeight:500, color:'#1e293b', maxWidth:'50%', textAlign:'right' }}>{q.value || '—'}</span>
-                </div>
-              ))
+            : <div style={{ background:'#fff', border:'1px solid #e8ecf0', borderRadius:10, overflow:'hidden',
+                boxShadow:'0 1px 3px rgba(0,0,0,0.06)' }}>
+                {additionalQs.map((q, i) => (
+                  <div key={q.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+                    padding:'11px 16px', borderBottom: i < additionalQs.length-1 ? '1px solid #f1f5f9' : 'none', fontSize:13 }}>
+                    <span style={{ color:'#64748b' }}>{q.text}</span>
+                    <span style={{ fontWeight:500, color:'#1e293b', maxWidth:'50%', textAlign:'right' }}>{q.value || '—'}</span>
+                  </div>
+                ))}
+              </div>
         )}
       </div>
     </div>
@@ -250,7 +289,7 @@ function _NCView({ allNCs, ncData, checked, setChecked, onEditSingle, onBulkAssi
   }
 
   return (
-    <div style={{ padding:20, display:'flex', flexDirection:'column', gap:10 }}>
+    <div style={{ padding:20, display:'flex', flexDirection:'column', gap:12, background:'#f8f9fa', minHeight:'100%' }}>
       {allNCs.length === 0 && (
         <div style={{ padding:48, textAlign:'center', color:'#94a3b8', fontSize:13 }}>No non-conformances recorded.</div>
       )}
@@ -263,8 +302,9 @@ function _NCView({ allNCs, ncData, checked, setChecked, onEditSingle, onBulkAssi
         const expanded = expandedInstr.has(q.id);
 
         return (
-          <div key={q.id} style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10,
-            padding:'14px 16px', display:'flex', gap:10, position:'relative' }}>
+          <div key={q.id} style={{ background:'#fff', border:'1px solid #e8ecf0', borderRadius:10,
+            padding:'14px 16px', display:'flex', gap:10, position:'relative',
+            boxShadow:'0 1px 3px rgba(0,0,0,0.06)' }}>
             <input type="checkbox" checked={checked.has(q.id)} onChange={() => toggle(q.id)}
               style={{ marginTop:4, cursor:'pointer', flexShrink:0 }}/>
             <div style={{ flex:1, minWidth:0, paddingRight:32 }}>
@@ -480,43 +520,52 @@ function InspectionDetailScreen({ submission, onBack }) {
     <div style={{ display:'flex', flexDirection:'column', minHeight:'100%', fontFamily:'var(--font-sans)', position:'relative' }}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div style={{ padding:'14px 24px', borderBottom:'1px solid #e2e8f0', background:'#fff',
+      <div style={{ padding:'14px 24px', background:'#fff',
         display:'flex', alignItems:'flex-start', gap:12, flexShrink:0 }}>
         <button onClick={onBack}
-          style={{ background:'none', border:'none', cursor:'pointer', fontSize:22, color:'#64748b',
-            padding:'0 6px', borderRadius:6, lineHeight:1, marginTop:2, flexShrink:0 }}>
+          style={{ background:'none', border:'none', cursor:'pointer', fontSize:22, color:'#94a3b8',
+            padding:'0 6px', borderRadius:6, lineHeight:1, marginTop:3, flexShrink:0 }}>
           ‹
         </button>
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:5, flexWrap:'wrap' }}>
-            <span style={{ fontSize:18, fontWeight:500, color:'#0f172a' }}>{sub.topic}</span>
-            <span style={{ fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:12,
-              background:'#f1f5f9', color:'#475569', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4, flexWrap:'wrap' }}>
+            <span style={{ fontSize:18, fontWeight:600, color:'#0f172a' }}>{sub.topic}</span>
+            <span style={{ fontSize:10, fontWeight:700, padding:'3px 10px', borderRadius:12,
+              background:'#f1f5f9', color:'#64748b', textTransform:'uppercase', letterSpacing:'0.06em' }}>
               {sub.type}
             </span>
           </div>
-          <div style={{ fontSize:13, color:'#64748b', display:'flex', flexWrap:'wrap', gap:0, lineHeight:1.8 }}>
-            <span>Conducted by:&nbsp;<strong style={{ color:'#334155', fontWeight:500 }}>{sub.conductedBy}</strong></span>
-            <span style={{ margin:'0 10px', color:'#cbd5e1' }}>·</span>
-            <span>Conducted on:&nbsp;<strong style={{ color:'#334155', fontWeight:500 }}>{sub.conductedOn}</strong></span>
-            <span style={{ margin:'0 10px', color:'#cbd5e1' }}>·</span>
-            {sub.conductedAt
-              ? <span>📍&nbsp;<strong style={{ color:'#334155', fontWeight:500 }}>{sub.conductedAt}</strong></span>
-              : <span style={{ color:'#94a3b8', fontStyle:'italic' }}>Location not recorded</span>}
+          {/* Fix 5: no labels — context makes it obvious */}
+          <div style={{ fontSize:13, color:'#94a3b8', display:'flex', flexWrap:'wrap', alignItems:'center', gap:0 }}>
+            <span>{sub.conductedBy}</span>
+            <span style={{ margin:'0 8px', color:'#e2e8f0' }}>·</span>
+            <span>{sub.conductedOn}</span>
+            {sub.conductedAt && <>
+              <span style={{ margin:'0 8px', color:'#e2e8f0' }}>·</span>
+              <span>📍 {sub.conductedAt}</span>
+            </>}
+            {!sub.conductedAt && <>
+              <span style={{ margin:'0 8px', color:'#e2e8f0' }}>·</span>
+              <span style={{ fontStyle:'italic' }}>Location not recorded</span>
+            </>}
           </div>
         </div>
         {/* Score circle */}
         <div style={{ width:58, height:58, borderRadius:'50%', border:`4px solid ${circleColor}`,
-          display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-          <span style={{ fontSize:14, fontWeight:700, color:circleColor }}>{sub.score}%</span>
+          display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+          boxShadow:`0 0 0 3px ${circleColor}22` }}>
+          <span style={{ fontSize:14, fontWeight:800, color:circleColor }}>{sub.score}%</span>
         </div>
       </div>
+
+      {/* Fix 6: section score bar — macro before micro */}
+      <_ScoreBar sections={sub.sections}/>
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
       <div style={{ display:'flex', flex:1, overflow:'hidden', minHeight:0 }}>
 
-        {/* Sidebar */}
-        <div style={{ width:250, borderRight:'1px solid #e2e8f0', background:'#f8fafc',
+        {/* Fix 2: sidebar with left accent bar + score pills */}
+        <div style={{ width:256, borderRight:'1px solid #e2e8f0', background:'#fff',
           overflowY:'auto', flexShrink:0 }}>
           {sub.sections.map(s => {
             const isActive = !ncView && activeSection === s.id;
@@ -524,16 +573,20 @@ function InspectionDetailScreen({ submission, onBack }) {
             return (
               <button key={s.id}
                 onClick={() => { setNcView(false); setActive(s.id); setTab('responses'); }}
-                style={{ width:'100%', padding:'11px 16px', border:'none',
+                style={{ width:'100%', padding:'10px 14px 10px 16px', border:'none',
                   borderBottom:'1px solid #f1f5f9',
-                  background: isActive ? '#2563eb' : 'transparent',
-                  color: isActive ? '#fff' : '#1e293b',
+                  borderLeft: isActive ? '3px solid #2563eb' : '3px solid transparent',
+                  background: isActive ? '#eff6ff' : 'transparent',
+                  color: isActive ? '#1d4ed8' : '#374151',
                   cursor:'pointer', display:'flex', justifyContent:'space-between',
                   alignItems:'center', textAlign:'left', fontSize:13,
                   fontWeight: isActive ? 600 : 400 }}>
                 <span style={{ flex:1, lineHeight:1.4, marginRight:8 }}>{s.name}</span>
-                <span style={{ fontSize:12, fontWeight:700, flexShrink:0,
-                  color: isActive ? 'rgba(255,255,255,0.85)' : sc }}>
+                {/* Score pill */}
+                <span style={{ fontSize:11, fontWeight:700, padding:'2px 7px', borderRadius:10,
+                  flexShrink:0,
+                  background: isActive ? sc + '20' : sc + '15',
+                  color: sc }}>
                   {s.score}%
                 </span>
               </button>
@@ -541,24 +594,23 @@ function InspectionDetailScreen({ submission, onBack }) {
           })}
           {/* NC tab */}
           <button onClick={() => { setNcView(true); setChecked(new Set()); }}
-            style={{ width:'100%', padding:'11px 16px', border:'none',
+            style={{ width:'100%', padding:'10px 14px 10px 16px', border:'none',
               borderBottom:'1px solid #f1f5f9',
-              background: ncView ? '#2563eb' : 'transparent',
-              color: ncView ? '#fff' : '#ef4444',
+              borderLeft: ncView ? '3px solid #dc2626' : '3px solid transparent',
+              background: ncView ? '#fef2f2' : 'transparent',
+              color: ncView ? '#dc2626' : '#6b7280',
               cursor:'pointer', display:'flex', justifyContent:'space-between',
-              alignItems:'center', textAlign:'left', fontSize:13,
-              fontWeight: 600 }}>
+              alignItems:'center', textAlign:'left', fontSize:13, fontWeight:600 }}>
             <span>Non Conformance</span>
-            <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:10,
-              background: ncView ? 'rgba(255,255,255,0.2)' : '#fef2f2',
-              color: ncView ? '#fff' : '#ef4444' }}>
+            <span style={{ fontSize:11, fontWeight:700, padding:'2px 7px', borderRadius:10,
+              background:'#fee2e2', color:'#dc2626' }}>
               {allNCs.length}
             </span>
           </button>
         </div>
 
-        {/* Main content */}
-        <div style={{ flex:1, overflowY:'auto' }}>
+        {/* Fix 1: grey page background, cards float on it */}
+        <div style={{ flex:1, overflowY:'auto', background:'#f8f9fa' }}>
           {ncView
             ? <_NCView
                 allNCs={allNCs}
