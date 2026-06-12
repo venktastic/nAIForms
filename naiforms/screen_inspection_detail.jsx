@@ -82,7 +82,13 @@ const _INSP_SAMPLE = {
           images:['#f87171'],
           ncr:{ assignedTo:null, status:null, hseInstructions:'' } },
       ]},
-  ]
+  ],
+  // Submission-level supplementary data — not part of the inspection checklist
+  additionalData: {
+    conductedWith: 'Ahmed Al-Rashid, Sanjay Raman',
+    immediateActions: 'Cylinder storage area cordoned off and supervisor notified. Work in the welding bay suspended until ventilation unit is repaired. Temporary arc screens have been ordered and are expected on site by 22 Apr 2026.',
+    additionalRemarks: 'Overall site conditions satisfactory outside of the Welding bay. PPE compliance issues in that zone are recurrent — a dedicated toolbox talk is recommended before the next shift. Emergency preparedness plan needs to be reprinted and posted at all entry points.',
+  },
 };
 window.SAMPLE_INSP_SUBMISSION = _INSP_SAMPLE;
 
@@ -119,7 +125,6 @@ function _initials(name) {
 
 const _ASSIGNEES = ['Prakash Senghani','Surya Tej Kotamreddy','Venkatesh Murthy','Rakesh Hirani','Arun Kumar','Ahmed Al-Rashid'];
 
-// ── ScoreBar ─────────────────────────────────────────────────────────────────
 // ── CSS injected once for hover-only states ───────────────────────────────────
 const _NID_STYLES = `
   ._nid-nc-card .nid-edit-btn { opacity: 0; transition: opacity 0.12s; }
@@ -128,32 +133,7 @@ const _NID_STYLES = `
   ._nid-sec-btn.active:hover { background: #EFF6FF !important; }
 `;
 
-// ── Score bar ─────────────────────────────────────────────────────────────────
-function _ScoreBar({ sections }) {
-  const n = sections.length;
-  return (
-    <div style={{ padding:'12px 24px 10px', background:'#fff', borderBottom:'1px solid #E5E7EB' }}>
-      <div style={{ display:'flex', gap:2, height:8 }}>
-        {sections.map((s, i) => (
-          <div key={s.id} title={`${s.name}: ${s.score}%`}
-            style={{ flex:1, background:_scoreColor(s.score),
-              borderRadius: i===0 ? '4px 0 0 4px' : i===n-1 ? '0 4px 4px 0' : '0' }}/>
-        ))}
-      </div>
-      <div style={{ display:'flex', gap:2, marginTop:5 }}>
-        {sections.map(s => (
-          <div key={s.id} title={`${s.name}: ${s.score}%`}
-            style={{ flex:1, fontSize:10, color:'#9CA3AF', overflow:'hidden',
-              textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign:'center' }}>
-            {s.name}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── QuestionCard ──────────────────────────────────────────────────────────────
+// ── QuestionCard — compact row layout ────────────────────────────────────────
 function _QuestionCard({ q }) {
   const pill = _pillStyle(q.response);
   const imgs = (q.images || []).filter(Boolean);
@@ -161,51 +141,46 @@ function _QuestionCard({ q }) {
   const hasPhotos  = imgs.length > 0;
 
   return (
-    <div style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:12,
-      padding:16, display:'flex', flexDirection:'column', gap:10 }}>
-
-      {/* Zone 1 — question ref + text */}
-      <div>
+    <div style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:8, padding:'10px 12px' }}>
+      {/* Top row: Q-number + question text + response pill inline */}
+      <div style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
         {q.num != null && (
-          <div style={{ fontSize:11, fontWeight:600, color:'#9CA3AF', letterSpacing:'0.08em',
-            textTransform:'uppercase', marginBottom:5 }}>Question {q.num}</div>
+          <span style={{ fontSize:10, fontWeight:700, color:'#9CA3AF', letterSpacing:'0.06em',
+            textTransform:'uppercase', flexShrink:0, marginTop:2, minWidth:20 }}>
+            Q{q.num}
+          </span>
         )}
-        <div style={{ fontSize:15, fontWeight:500, color:'#111827', lineHeight:1.6 }}>{q.text}</div>
-      </div>
-
-      {/* Zone 2 — response pill: most prominent element */}
-      <div>
-        <span style={{ display:'inline-block', padding:'8px 16px', borderRadius:9999, fontSize:13,
-          fontWeight:600, background:pill.bg, color:pill.color }}>
+        <span style={{ fontSize:13, fontWeight:500, color:'#111827', lineHeight:1.5, flex:1 }}>{q.text}</span>
+        <span style={{ display:'inline-block', padding:'3px 10px', borderRadius:9999, fontSize:12,
+          fontWeight:600, background:pill.bg, color:pill.color, flexShrink:0, whiteSpace:'nowrap' }}>
           {q.response}
         </span>
       </div>
-
-      {/* Zone 3 — comment (only if present) */}
+      {/* Comment — compact, below question row */}
       {hasComment && (
-        <div style={{ fontSize:13, color:'#6B7280', lineHeight:1.6, marginTop:4 }}>
+        <div style={{ fontSize:12, color:'#6B7280', lineHeight:1.5, marginTop:6,
+          paddingLeft: q.num != null ? 30 : 0 }}>
           {q.comment}
         </div>
       )}
-
-      {/* Zone 4 — photos (only if present) */}
+      {/* Photos — small thumbnails */}
       {hasPhotos && (
-        <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:4 }}>
-          {imgs.slice(0, 4).map((src, i) => (
-            <div key={i} style={{ width:56, height:56, borderRadius:6, flexShrink:0,
+        <div style={{ display:'flex', gap:4, marginTop:6, paddingLeft: q.num != null ? 30 : 0 }}>
+          {imgs.slice(0, 5).map((src, i) => (
+            <div key={i} style={{ width:40, height:40, borderRadius:5, flexShrink:0,
               background: src.startsWith('#') ? src : '#E5E7EB', overflow:'hidden',
               display:'flex', alignItems:'center', justifyContent:'center',
               border:'1px solid rgba(0,0,0,0.06)' }}>
               {src.startsWith('#')
-                ? <span style={{ fontSize:20, opacity:0.4 }}>📷</span>
+                ? <span style={{ fontSize:14, opacity:0.4 }}>📷</span>
                 : <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>}
             </div>
           ))}
-          {imgs.length > 4 && (
-            <div style={{ width:56, height:56, borderRadius:6, background:'#F3F4F6',
+          {imgs.length > 5 && (
+            <div style={{ width:40, height:40, borderRadius:5, background:'#F3F4F6',
               border:'1px solid #E5E7EB', display:'flex', alignItems:'center',
-              justifyContent:'center', fontSize:12, color:'#6B7280', fontWeight:600, flexShrink:0 }}>
-              +{imgs.length - 4}
+              justifyContent:'center', fontSize:11, color:'#6B7280', fontWeight:600, flexShrink:0 }}>
+              +{imgs.length - 5}
             </div>
           )}
         </div>
@@ -214,30 +189,70 @@ function _QuestionCard({ q }) {
   );
 }
 
+// ── AdditionalDataView — submission-level supplementary fields ────────────────
+function _AdditionalDataView({ additionalData }) {
+  const ad = additionalData || {};
+  const fields = [
+    { id:'w', label:'Inspection conducted with', type:'short',
+      hint:'Names of any witnesses or co-inspectors present',
+      value: ad.conductedWith },
+    { id:'ia', label:'Immediate actions taken on site', type:'long',
+      hint:'Any corrective steps taken during the inspection visit',
+      value: ad.immediateActions },
+    { id:'ar', label:'Additional remarks or observations', type:'long',
+      hint:'Anything not covered by the checklist questions',
+      value: ad.additionalRemarks },
+  ];
+
+  return (
+    <div style={{ padding:16, display:'flex', flexDirection:'column', gap:12 }}>
+      {/* Context banner */}
+      <div style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'10px 14px',
+        background:'#FFFBEB', border:'1px solid #FDE68A', borderRadius:8, fontSize:12 }}>
+        <span style={{ flexShrink:0, marginTop:1 }}>📋</span>
+        <div style={{ color:'#92400E', lineHeight:1.5 }}>
+          <strong>Supplementary data</strong> — these fields are not part of the inspection
+          checklist. They capture context and actions logged at submission time.
+        </div>
+      </div>
+
+      {/* Fields */}
+      {fields.map(f => (
+        <div key={f.id} style={{ background:'#fff', border:'1px solid #E5E7EB',
+          borderRadius:8, padding:'12px 14px', borderLeft:'3px solid #D1D5DB' }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'#6B7280', letterSpacing:'0.06em',
+            textTransform:'uppercase', marginBottom:2 }}>{f.label}</div>
+          <div style={{ fontSize:11, color:'#9CA3AF', marginBottom:8 }}>{f.hint}</div>
+          {f.value
+            ? <div style={{ fontSize:13, color:'#111827', lineHeight:1.6 }}>{f.value}</div>
+            : <div style={{ fontSize:13, color:'#D1D5DB', fontStyle:'italic' }}>Not provided</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── SectionView ───────────────────────────────────────────────────────────────
-function _SectionView({ section, tab, setTab }) {
+function _SectionView({ section, tab, setTab, additionalData }) {
   if (!section) return (
     <div style={{ padding:48, textAlign:'center', color:'#9CA3AF', fontSize:13 }}>No section selected.</div>
   );
-
-  const additionalTypes = ['text','long-text','number','date-time'];
-  const additionalQs = section.questions.filter(q => additionalTypes.includes(q.fieldType));
 
   return (
     <div style={{ display:'flex', flexDirection:'column', minHeight:'100%' }}>
       {/* Per-section location */}
       {section.location && (
-        <div style={{ padding:'8px 20px', background:'#EFF6FF', borderBottom:'1px solid #BFDBFE',
-          display:'flex', alignItems:'center', gap:8, fontSize:12, color:'#1D4ED8' }}>
+        <div style={{ padding:'7px 16px', background:'#EFF6FF', borderBottom:'1px solid #BFDBFE',
+          display:'flex', alignItems:'center', gap:6, fontSize:12, color:'#1D4ED8' }}>
           📍 <span>{section.location}</span>
         </div>
       )}
 
       {/* Minimal underline tabs */}
-      <div style={{ display:'flex', padding:'0 20px', borderBottom:'1px solid #E5E7EB', background:'#fff', flexShrink:0 }}>
+      <div style={{ display:'flex', padding:'0 16px', borderBottom:'1px solid #E5E7EB', background:'#fff', flexShrink:0 }}>
         {[['responses','Responses'],['additional','Additional Data']].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)}
-            style={{ padding:'10px 16px', border:'none', background:'transparent',
+            style={{ padding:'9px 14px', border:'none', background:'transparent',
               borderBottom:`2px solid ${tab === key ? '#2563EB' : 'transparent'}`,
               color: tab === key ? '#1D4ED8' : '#6B7280', fontSize:13,
               fontWeight: tab === key ? 600 : 400, cursor:'pointer', marginBottom:-1 }}>
@@ -247,23 +262,13 @@ function _SectionView({ section, tab, setTab }) {
       </div>
 
       {/* Content on #F4F6F8 */}
-      <div style={{ flex:1, padding:20, display:'flex', flexDirection:'column', gap:12, background:'#F4F6F8' }}>
+      <div style={{ flex:1, padding:12, display:'flex', flexDirection:'column', gap:6, background:'#F4F6F8' }}>
         {tab === 'responses' ? (
           section.questions.length === 0
             ? <div style={{ padding:40, textAlign:'center', color:'#9CA3AF', fontSize:13 }}>No questions in this section.</div>
             : section.questions.map(q => <_QuestionCard key={q.id} q={q}/>)
         ) : (
-          additionalQs.length === 0
-            ? <div style={{ padding:40, textAlign:'center', color:'#9CA3AF', fontSize:13 }}>No additional data for this section.</div>
-            : <div style={{ background:'#fff', border:'1px solid #E5E7EB', borderRadius:12, overflow:'hidden' }}>
-                {additionalQs.map((q, i) => (
-                  <div key={q.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
-                    padding:'11px 16px', borderBottom: i < additionalQs.length-1 ? '1px solid #F3F4F6' : 'none', fontSize:13 }}>
-                    <span style={{ color:'#6B7280' }}>{q.text}</span>
-                    <span style={{ fontWeight:500, color:'#111827', maxWidth:'50%', textAlign:'right' }}>{q.value || '—'}</span>
-                  </div>
-                ))}
-              </div>
+          <_AdditionalDataView additionalData={additionalData}/>
         )}
       </div>
     </div>
@@ -563,9 +568,6 @@ function InspectionDetailScreen({ submission, onBack }) {
         </div>
       </div>
 
-      {/* ── Section score bar ─────────────────────────────────────────────────── */}
-      <_ScoreBar sections={sub.sections}/>
-
       {/* ── Two-column body ───────────────────────────────────────────────────── */}
       <div style={{ display:'flex', flex:1, overflow:'hidden', minHeight:0 }}>
 
@@ -626,7 +628,8 @@ function InspectionDetailScreen({ submission, onBack }) {
             : <_SectionView
                 section={currentSec}
                 tab={tab}
-                setTab={setTab}/>}
+                setTab={setTab}
+                additionalData={sub.additionalData}/>}
         </div>
       </div>
 
