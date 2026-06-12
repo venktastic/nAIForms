@@ -4,11 +4,12 @@ const { useState } = React;
 // ── Embedded sample submission ────────────────────────────────────────────────
 // images: array of hex colour strings = placeholder thumbnails (no real URLs needed)
 const _INSP_SAMPLE = {
-  id: 'DEMINS21', topic: 'Fire Surveillance', type: 'Adhoc',
+  id: 'DEMINS21', topic: 'Fire Surveillance', type: 'Scheduled',
+  scheduleId: 'SCH-2026-042',
   conductedBy: 'Rakesh Hirani', conductedOn: '20 Apr 2026, 10:10 AM',
   conductedAt: 'Dubai', score: 72,
   sections: [
-    { id:'s1', name:'Fire', score:100, location:'Block A, Ground Floor',
+    { id:'s1', name:'Fire', score:100,
       questions:[
         { id:'q1', num:1, text:'Is a suitable and sufficient Fire Risk Assessment available for the area which is approved and remains valid for the current tasks and environment?',
           response:'Good Practice', comment:'Fire Risk Assessment dated March 2026 is available and signed off by the site HSE manager.', images:['#4ade80','#86efac'] },
@@ -168,11 +169,11 @@ function _QuestionCard({ q }) {
         <div style={{ display:'flex', gap:4, marginTop:6, paddingLeft: q.num != null ? 30 : 0 }}>
           {imgs.slice(0, 5).map((src, i) => (
             <div key={i} style={{ width:40, height:40, borderRadius:5, flexShrink:0,
-              background: src.startsWith('#') ? src : '#E5E7EB', overflow:'hidden',
+              background:'#F3F4F6', overflow:'hidden',
               display:'flex', alignItems:'center', justifyContent:'center',
-              border:'1px solid rgba(0,0,0,0.06)' }}>
+              border:'1px solid #E5E7EB' }}>
               {src.startsWith('#')
-                ? <span style={{ fontSize:14, opacity:0.4 }}>📷</span>
+                ? <span style={{ fontSize:14, color:'#9CA3AF' }}>📷</span>
                 : <img src={src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>}
             </div>
           ))}
@@ -240,14 +241,6 @@ function _SectionView({ section, tab, setTab, additionalData }) {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', minHeight:'100%' }}>
-      {/* Per-section location */}
-      {section.location && (
-        <div style={{ padding:'7px 16px', background:'#EFF6FF', borderBottom:'1px solid #BFDBFE',
-          display:'flex', alignItems:'center', gap:6, fontSize:12, color:'#1D4ED8' }}>
-          📍 <span>{section.location}</span>
-        </div>
-      )}
-
       {/* Minimal underline tabs */}
       <div style={{ display:'flex', padding:'0 16px', borderBottom:'1px solid #E5E7EB', background:'#fff', flexShrink:0 }}>
         {[['responses','Responses'],['additional','Additional Data']].map(([key, label]) => (
@@ -557,6 +550,14 @@ function InspectionDetailScreen({ submission, onBack }) {
             {sub.conductedAt && <>
               <span style={{ margin:'0 6px' }}>·</span>
               <span>📍 {sub.conductedAt}</span>
+            </>}
+            {sub.scheduleId && <>
+              <span style={{ margin:'0 6px' }}>·</span>
+              <span style={{ display:'inline-flex', alignItems:'center', gap:4,
+                background:'#EFF6FF', color:'#1D4ED8', borderRadius:4,
+                padding:'1px 7px', fontSize:12, fontWeight:600 }}>
+                🗓 {sub.scheduleId}
+              </span>
             </>}
           </div>
         </div>
