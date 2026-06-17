@@ -49,8 +49,6 @@ function FormBuilder({ form, onBack, onPublish }) {
   const [masterSearch, setMasterSearch] = useState('');
   const [showFill, setShowFill]      = useState(false);
   const [addFieldModal, setAddFieldModal] = useState(null); // null | sectionId
-  const [showFormula,   setShowFormula]   = useState(false);
-
   const isInspection = data.formType !== 'statistics';
   const isViewMode   = data.status === 'published';
 
@@ -149,6 +147,21 @@ function FormBuilder({ form, onBack, onPublish }) {
     .filter(m => !masterSearch || m.name.toLowerCase().includes(masterSearch.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const _sectionFormula = (data.formulas && data.formulas.section) || 'TotalScore ÷ PotentialScore × 100';
+  const _overallFormula = (data.formulas && data.formulas.overall) || 'TotalScore ÷ PotentialScore × 100';
+  let _overallMaxScore = null;
+  if (isInspection && typeof window.evaluateFormula === 'function' &&
+      data.sections.some(function(s) { return sectionMaxScore(s) > 0; })) {
+    const _ov_tps = data.sections.reduce(function(a, s) { return a + sectionMaxScore(s); }, 0);
+    const _ov_tqs = data.sections.reduce(function(a, s) {
+      return a + s.fields.filter(function(f) { return ['yes-no-na','single-select'].includes(f.fieldType); }).length;
+    }, 0);
+    _overallMaxScore = window.evaluateFormula(_overallFormula, {
+      TotalScore:_ov_tps, PotentialScore:_ov_tps, TotalQuestions:_ov_tqs,
+      TotalNA:0, TotalAnswered:_ov_tqs, TotalPositive:_ov_tqs, TotalSections:data.sections.length
+    });
+  }
+
   const cols = !isViewMode ? '240px 1fr 300px' : '1fr 300px';
 
   return (
@@ -164,7 +177,6 @@ function FormBuilder({ form, onBack, onPublish }) {
           <>
             <Btn variant="ghost" onClick={onBack}>← Library</Btn>
             {isInspection && <Btn onClick={() => setShowFill(true)}>▶ Try form</Btn>}
-            {isInspection && <Btn onClick={() => setShowFormula(true)}>ƒ Score Formula</Btn>}
             <Btn>Save draft</Btn>
             <Btn variant="primary" title="Once published, existing fields cannot be edited or deleted." onClick={() => setShowPublish(true)}>Publish →</Btn>
           </>
@@ -198,6 +210,10 @@ function FormBuilder({ form, onBack, onPublish }) {
                     </button>
                   ))}
                 </div>
+                <InspectionFormulaPanel
+                  formulas={data.formulas}
+                  onSave={f => updateData({ formulas: f })}
+                />
               </>
             ) : (
               /* ── Statistics: master fields panel ── */
@@ -391,36 +407,35 @@ function FormBuilder({ form, onBack, onPublish }) {
           <PhoneFrame>
             <div style={{ padding:'12px 14px' }}>
               <div style={{ fontWeight:700, fontSize:15, marginBottom:4 }}>{data.name || 'Untitled Form'}</div>
-              {isInspection && data.sections.some(s => sectionMaxScore(s) > 0) && (() => {
-                const _af = data.formulas?.overall || 'TotalScore ÷ PotentialScore × 100';
-                const _tps = data.sections.reduce((a, s) => a + sectionMaxScore(s), 0);
-                const _tqs = data.sections.reduce((a, s) => a + s.fields.filter(f => ['yes-no-na','single-select'].includes(f.fieldType)).length, 0);
-                const _ovMax = evaluateFormula(_af, { TotalScore:_tps, PotentialScore:_tps, TotalQuestions:_tqs, TotalNA:0, TotalAnswered:_tqs, TotalPositive:_tqs, TotalSections: data.sections.length });
-                return (
-                  <div title={`Overall score formula: ${_af}`} style={{ fontSize:11, color:'var(--n-500)', marginBottom:12, padding:'4px 8px', background:'var(--n-50)', borderRadius:4 }}>
-                    Overall Score: <strong>{_ovMax !== null ? 'max ' + _ovMax.toFixed(1) + '%' : '—'}</strong>
-                  </div>
-                );
-              })()}
+              {isInspection && _overallMaxScore !== null && (
+                <div title={'Overall score formula: ' + _overallFormula}
+                  style={{ fontSize:11, color:'var(--n-500)', marginBottom:12, padding:'4px 8px', background:'var(--n-50)', borderRadius:4 }}>
+                  Overall Score: <strong>max {_overallMaxScore.toFixed(1)}%</strong>
+                </div>
+              )}
               {!isInspection && <div style={{ marginBottom:14 }}/>}
               {data.sections.map((s, si) => {
                 const maxScore = isInspection ? sectionMaxScore(s) : 0;
+                let _secMaxScore = null;
+                if (isInspection && maxScore > 0 && typeof window.evaluateFormula === 'function') {
+                  const _sq = s.fields.filter(function(f) { return ['yes-no-na','single-select'].includes(f.fieldType); }).length;
+                  _secMaxScore = window.evaluateFormula(_sectionFormula, {
+                    TotalScore:maxScore, PotentialScore:maxScore, TotalQuestions:_sq,
+                    TotalNA:0, TotalAnswered:_sq, TotalPositive:_sq
+                  });
+                }
                 return (
                   <div key={s.id} style={{ marginBottom:16 }}>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
                       <div style={{ fontSize:11.5, fontWeight:600, color:'var(--n-600)', textTransform:'uppercase', letterSpacing:'0.04em' }}>
                         {s.title}
                       </div>
-                      {isInspection && maxScore > 0 && (() => {
-                        const _sf = data.formulas?.section || 'TotalScore ÷ PotentialScore × 100';
-                        const _qc = s.fields.filter(f => ['yes-no-na','single-select'].includes(f.fieldType)).length;
-                        const _sm = evaluateFormula(_sf, { TotalScore:maxScore, PotentialScore:maxScore, TotalQuestions:_qc, TotalNA:0, TotalAnswered:_qc, TotalPositive:_qc });
-                        return (
-                          <div title={`Section formula: ${_sf}`} style={{ fontSize:10, color:'var(--n-400)', fontWeight:500 }}>
-                            max {_sm !== null ? _sm.toFixed(1) + '%' : '—'}
-                          </div>
-                        );
-                      })()}
+                      {isInspection && maxScore > 0 && (
+                        <div title={'Section formula: ' + _sectionFormula}
+                          style={{ fontSize:10, color:'var(--n-400)', fontWeight:500 }}>
+                          max {_secMaxScore !== null ? _secMaxScore.toFixed(1) + '%' : '—'}
+                        </div>
+                      )}
                     </div>
                     {s.fields.map((f, fi) => {
                       const _sc = ['yes-no-na','single-select'].includes(f.fieldType);
@@ -440,14 +455,6 @@ function FormBuilder({ form, onBack, onPublish }) {
 
       {showFill && isInspection && (
         <InspectionFillScreen form={data} onClose={() => setShowFill(false)}/>
-      )}
-
-      {showFormula && isInspection && (
-        <InspectionFormulaPanel
-          formulas={data.formulas}
-          onSave={f => { updateData({ formulas: f }); setShowFormula(false); }}
-          onClose={() => setShowFormula(false)}
-        />
       )}
 
       {addFieldModal && (

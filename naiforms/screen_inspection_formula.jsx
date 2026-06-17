@@ -1,15 +1,15 @@
 // Formula designer for Inspection / Audit form builder
-const { useState, useRef, useLayoutEffect } = React;
+const { useState, useRef, useEffect } = React;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const _SEC_VARS = ['TotalScore','PotentialScore','TotalQuestions','TotalNA','TotalAnswered','TotalPositive'];
 const _ALL_VARS = ['TotalScore','PotentialScore','TotalQuestions','TotalNA','TotalAnswered','TotalPositive','TotalSections'];
 
 const _VAR_META = {
-  TotalScore:      'Sum of selected weights in scope (weight = -1 excluded)',
-  PotentialScore:  'Sum of max weights per question in scope (weight = -1 excluded)',
+  TotalScore:      'Sum of selected weights in scope (weight = −1 excluded)',
+  PotentialScore:  'Sum of max weights per question in scope (weight = −1 excluded)',
   TotalQuestions:  'Total questions in scope',
-  TotalNA:         'Questions answered with weight = -1',
+  TotalNA:         'Questions answered with weight = −1',
   TotalAnswered:   'TotalQuestions − TotalNA',
   TotalPositive:   'Questions where selected weight > 0',
   TotalSections:   'Number of sections in the form (overall formula only)',
@@ -26,12 +26,12 @@ function _tokenize(expr) {
   while (i < s.length) {
     const ch = s[i];
     if (' \t\n\r'.includes(ch)) { i++; continue; }
-    if (ch === '+') { tokens.push({ type:'OP', value:'+' }); i++; continue; }
-    if (ch === '-' || ch === '−') { tokens.push({ type:'OP', value:'-' }); i++; continue; }
-    if (ch === '*' || ch === '×' || ch === '×') { tokens.push({ type:'OP', value:'×' }); i++; continue; }
-    if (ch === '/' || ch === '÷' || ch === '÷') { tokens.push({ type:'OP', value:'÷' }); i++; continue; }
-    if (ch === '(') { tokens.push({ type:'OP', value:'(' }); i++; continue; }
-    if (ch === ')') { tokens.push({ type:'OP', value:')' }); i++; continue; }
+    if (ch === '+')                                    { tokens.push({ type:'OP', value:'+' }); i++; continue; }
+    if (ch === '-' || ch === '−')                 { tokens.push({ type:'OP', value:'-' }); i++; continue; }
+    if (ch === '*' || ch === '×')                 { tokens.push({ type:'OP', value:'×' }); i++; continue; }
+    if (ch === '/' || ch === '÷')                 { tokens.push({ type:'OP', value:'÷' }); i++; continue; }
+    if (ch === '(')                                    { tokens.push({ type:'OP', value:'(' }); i++; continue; }
+    if (ch === ')')                                    { tokens.push({ type:'OP', value:')' }); i++; continue; }
     if ((ch >= '0' && ch <= '9') || ch === '.') {
       let num = '';
       while (i < s.length && ((s[i] >= '0' && s[i] <= '9') || s[i] === '.')) num += s[i++];
@@ -138,41 +138,40 @@ function validateFormula(expr, scope) {
   const trimmed = (expr || '').trim();
 
   if (!trimmed) {
-    errors.push(scope === 'section'
-      ? 'Section score formula is required.'
-      : 'Overall score formula is required.');
+    errors.push(scope === 'section' ? 'Section score formula is required.' : 'Overall score formula is required.');
     return { errors, warnings };
   }
 
   const tokens = _tokenize(trimmed);
 
-  for (const t of tokens) {
-    if (t.type === 'UNKNOWN') {
-      errors.push(`Invalid character: "${t.value}". Only + − × ÷ and ( ) are allowed.`);
+  for (let ti = 0; ti < tokens.length; ti++) {
+    if (tokens[ti].type === 'UNKNOWN') {
+      errors.push('Invalid character: "' + tokens[ti].value + '". Only + − × ÷ and ( ) are allowed.');
       return { errors, warnings };
     }
   }
 
   const seen = new Set();
-  for (const t of tokens) {
+  for (let ti = 0; ti < tokens.length; ti++) {
+    const t = tokens[ti];
     if (t.type !== 'IDENT') continue;
     if (seen.has(t.value)) continue;
     seen.add(t.value);
-    if (_ALL_VARS.includes(t.value)) {
+    if (_ALL_VARS.indexOf(t.value) >= 0) {
       if (scope === 'section' && t.value === 'TotalSections') {
         errors.push('TotalSections is not available in the section formula.');
       }
     } else {
-      errors.push(`Unknown variable: "${t.value}". Use the variable chips to insert valid names.`);
+      errors.push('Unknown variable: "' + t.value + '". Use the variable chips to insert valid names.');
     }
   }
 
-  for (let i = 0; i < tokens.length; i++) {
-    const t = tokens[i];
+  for (let ti = 0; ti < tokens.length; ti++) {
+    const t = tokens[ti];
     if (t.type === 'OP' && t.value === '-') {
-      const prev = tokens[i - 1];
+      const prev = tokens[ti - 1];
       const isUnary = !prev || prev.type === 'OP';
-      if (isUnary && tokens[i + 1]?.type === 'NUM') {
+      if (isUnary && tokens[ti + 1] && tokens[ti + 1].type === 'NUM') {
         errors.push('Negative numbers are not allowed as constants.');
         break;
       }
@@ -182,9 +181,9 @@ function validateFormula(expr, scope) {
   if (errors.length) return { errors, warnings };
 
   let depth = 0;
-  for (const t of tokens) {
-    if (t.value === '(') depth++;
-    else if (t.value === ')') depth--;
+  for (let ti = 0; ti < tokens.length; ti++) {
+    if (tokens[ti].value === '(') depth++;
+    else if (tokens[ti].value === ')') depth--;
     if (depth < 0) break;
   }
   if (depth !== 0) {
@@ -192,20 +191,37 @@ function validateFormula(expr, scope) {
     return { errors, warnings };
   }
 
-  if (!tokens.some(t => t.type === 'IDENT')) {
+  let hasIdent = false;
+  for (let ti = 0; ti < tokens.length; ti++) {
+    if (tokens[ti].type === 'IDENT') { hasIdent = true; break; }
+  }
+  if (!hasIdent) {
     warnings.push('This formula has no variables. It will return the same value for every submission. Are you sure?');
   }
 
   return { errors, warnings };
 }
 
-// ── FormulaEditor — one formula block ────────────────────────────────────────
-function _FormulaEditor({ label, desc, expr, onChange, scope, onValidate, validationResult }) {
+// ── CSS (injected once) ───────────────────────────────────────────────────────
+const _NIF_CSS = [
+  '._nif-chip{position:relative;display:inline-flex;}',
+  '._nif-chip:hover ._nif-tip{display:block;}',
+  '._nif-tip{display:none;position:absolute;bottom:calc(100% + 5px);left:50%;',
+  'transform:translateX(-50%);max-width:260px;min-width:120px;',
+  'background:#1F2937;color:#F9FAFB;font-size:11px;line-height:1.45;',
+  'padding:6px 9px;border-radius:6px;pointer-events:none;z-index:999;',
+  'box-shadow:0 4px 12px rgba(0,0,0,0.25);font-family:var(--font-sans);}',
+  '._nif-tip::after{content:"";position:absolute;top:100%;left:50%;',
+  'transform:translateX(-50%);border:5px solid transparent;border-top-color:#1F2937;}',
+].join('');
+
+// ── FormulaEditorBlock ────────────────────────────────────────────────────────
+function FormulaEditorBlock({ label, desc, expr, onChange, scope, onValidate, validationResult }) {
   const taRef = useRef(null);
   const [pendingCursor, setPendingCursor] = useState(null);
   const vars = scope === 'section' ? _SEC_VARS : _ALL_VARS;
 
-  useLayoutEffect(() => {
+  useEffect(function() {
     if (pendingCursor !== null && taRef.current) {
       taRef.current.focus();
       taRef.current.setSelectionRange(pendingCursor, pendingCursor);
@@ -224,84 +240,97 @@ function _FormulaEditor({ label, desc, expr, onChange, scope, onValidate, valida
     setPendingCursor(start + full.length);
   }
 
-  const hasErrors   = (validationResult?.errors   || []).length > 0;
-  const hasWarnings = !hasErrors && (validationResult?.warnings || []).length > 0;
+  const vErrors   = (validationResult && validationResult.errors)   || [];
+  const vWarnings = (validationResult && validationResult.warnings) || [];
+  const hasErrors   = vErrors.length > 0;
+  const hasWarnings = !hasErrors && vWarnings.length > 0;
   const borderColor = hasErrors ? '#EF4444' : hasWarnings ? '#F59E0B' : '#D1D5DB';
 
   const OPS = [
-    { lbl:'+',         ins:'+' },
-    { lbl:'−',         ins:'-' },
-    { lbl:'×',         ins:'×' },
-    { lbl:'÷',         ins:'÷' },
-    { lbl:'(',         ins:'(' },
-    { lbl:')',         ins:')' },
-    { lbl:'100',       ins:'100' },
-    { lbl:'200,000',   ins:'200000' },
-    { lbl:'1,000,000', ins:'1000000' },
+    { lbl:'+', ins:'+' }, { lbl:'−', ins:'-' },
+    { lbl:'×', ins:'×' }, { lbl:'÷', ins:'÷' },
+    { lbl:'(', ins:'(' }, { lbl:')', ins:')' }, { lbl:'100', ins:'100' },
   ];
 
   return (
-    <div style={{ background:'#F9FAFB', border:'1px solid #E5E7EB', borderRadius:10, padding:'14px 16px 12px' }}>
-      <div style={{ fontSize:13, fontWeight:700, color:'#111827', marginBottom:2 }}>{label}</div>
-      <div style={{ fontSize:12, color:'#6B7280', marginBottom:10, lineHeight:1.5 }}>{desc}</div>
+    <div style={{ marginBottom:12 }}>
+      <div style={{ fontSize:11.5, fontWeight:700, color:'#111827', marginBottom:2 }}>{label}</div>
+      <div style={{ fontSize:10.5, color:'#6B7280', marginBottom:5, lineHeight:1.4 }}>{desc}</div>
 
-      <textarea ref={taRef} rows={3} value={expr} spellCheck={false}
-        onChange={e => onChange(e.target.value)}
-        onBlur={onValidate}
+      <textarea ref={taRef} rows={2} value={expr} spellCheck={false}
+        onChange={function(e) { onChange(e.target.value); }}
+        onBlur={function() { onValidate(expr); }}
         style={{ width:'100%', boxSizing:'border-box', resize:'none', outline:'none',
-          fontFamily:'JetBrains Mono, Menlo, Consolas, monospace', fontSize:13, lineHeight:1.6,
-          padding:'9px 12px', border:`1.5px solid ${borderColor}`, borderRadius:8,
-          background:'#fff', color:'#111827' }}/>
+          fontFamily:'JetBrains Mono, Menlo, Consolas, monospace', fontSize:11, lineHeight:1.5,
+          padding:'5px 7px', border:'1.5px solid ' + borderColor, borderRadius:6,
+          background:'#fff', color:'#111827' }} />
 
-      <div style={{ marginTop:8 }}>
-        <div style={{ fontSize:10, fontWeight:700, color:'#9CA3AF', letterSpacing:'0.06em',
-          textTransform:'uppercase', marginBottom:5 }}>Variables — click to insert at cursor</div>
-        <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
-          {vars.map(v => (
-            <button key={v} onClick={() => insert(v)} title={_VAR_META[v]}
-              style={{ padding:'3px 9px', fontSize:11.5, fontWeight:600, cursor:'pointer',
-                border:'1px solid #BFDBFE', borderRadius:4, background:'#EFF6FF', color:'#1E40AF',
-                fontFamily:'JetBrains Mono, Menlo, monospace', lineHeight:1.5 }}>
-              {v}
-            </button>
-          ))}
-        </div>
+      <div style={{ fontSize:10, fontWeight:700, color:'#9CA3AF', letterSpacing:'0.06em',
+        textTransform:'uppercase', margin:'5px 0 4px' }}>Variables</div>
+      <div style={{ display:'flex', flexWrap:'wrap', gap:3 }}>
+        {vars.map(function(v) {
+          return (
+            <span key={v} className="_nif-chip">
+              <button
+                onClick={function() { insert(v); }}
+                style={{ padding:'2px 7px', fontSize:10.5, fontWeight:600, cursor:'pointer',
+                  border:'1px solid #BFDBFE', borderRadius:4, background:'#EFF6FF', color:'#1E40AF',
+                  fontFamily:'JetBrains Mono, Menlo, monospace', lineHeight:1.5 }}>
+                {v}
+              </button>
+              <span className="_nif-tip">{_VAR_META[v]}</span>
+            </span>
+          );
+        })}
       </div>
 
-      <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginTop:8 }}>
-        {OPS.map(({ lbl, ins }) => (
-          <button key={ins} onClick={() => insert(ins)}
-            style={{ padding:'3px 9px', fontSize:12, fontWeight:600, cursor:'pointer',
-              border:'1px solid #E5E7EB', borderRadius:4, background:'#fff', color:'#374151',
-              fontFamily: ins.length <= 1 ? 'JetBrains Mono, Menlo, monospace' : 'inherit' }}>
-            {lbl}
-          </button>
-        ))}
+      <div style={{ display:'flex', flexWrap:'wrap', gap:3, marginTop:4 }}>
+        {OPS.map(function(op) {
+          return (
+            <button key={op.ins}
+              onClick={function() { insert(op.ins); }}
+              style={{ padding:'2px 7px', fontSize:11, fontWeight:600, cursor:'pointer',
+                border:'1px solid #E5E7EB', borderRadius:4, background:'#fff', color:'#374151',
+                fontFamily:'JetBrains Mono, Menlo, monospace', lineHeight:1.5 }}>
+              {op.lbl}
+            </button>
+          );
+        })}
       </div>
 
       {hasErrors && (
-        <div style={{ marginTop:8, display:'flex', flexDirection:'column', gap:3 }}>
-          {validationResult.errors.map((e, i) => (
-            <div key={i} style={{ fontSize:12, color:'#DC2626', display:'flex', gap:5, alignItems:'flex-start' }}>
-              <span style={{ flexShrink:0 }}>⚠</span><span>{e}</span>
-            </div>
-          ))}
+        <div style={{ marginTop:5 }}>
+          {vErrors.map(function(e, i) {
+            return (
+              <div key={i} style={{ fontSize:10.5, color:'#DC2626', display:'flex', gap:4,
+                alignItems:'flex-start', marginBottom:2 }}>
+                <span style={{ flexShrink:0 }}>⚠</span><span>{e}</span>
+              </div>
+            );
+          })}
         </div>
       )}
       {hasWarnings && (
-        <div style={{ marginTop:8, display:'flex', flexDirection:'column', gap:3 }}>
-          {validationResult.warnings.map((w, i) => (
-            <div key={i} style={{ fontSize:12, color:'#D97706', display:'flex', gap:5, alignItems:'flex-start' }}>
-              <span style={{ flexShrink:0 }}>⚠</span><span>{w}</span>
-            </div>
-          ))}
+        <div style={{ marginTop:5 }}>
+          {vWarnings.map(function(w, i) {
+            return (
+              <div key={i} style={{ fontSize:10.5, color:'#D97706', display:'flex', gap:4,
+                alignItems:'flex-start', marginBottom:2 }}>
+                <span style={{ flexShrink:0 }}>⚠</span><span>{w}</span>
+              </div>
+            );
+          })}
         </div>
       )}
 
       <button
-        onClick={() => { onChange(scope === 'section' ? _DEFAULT_SEC : _DEFAULT_ALL); onValidate(); }}
-        style={{ marginTop:8, background:'none', border:'none', padding:0, cursor:'pointer',
-          fontSize:12, color:'#6B7280', textDecoration:'underline' }}>
+        onClick={function() {
+          const def = scope === 'section' ? _DEFAULT_SEC : _DEFAULT_ALL;
+          onChange(def);
+          onValidate(def);
+        }}
+        style={{ marginTop:4, background:'none', border:'none', padding:0, cursor:'pointer',
+          fontSize:10.5, color:'#6B7280', textDecoration:'underline' }}>
         Reset to default
       </button>
     </div>
@@ -309,15 +338,21 @@ function _FormulaEditor({ label, desc, expr, onChange, scope, onValidate, valida
 }
 
 // ── InspectionFormulaPanel ────────────────────────────────────────────────────
-function InspectionFormulaPanel({ formulas, onSave, onClose }) {
+function InspectionFormulaPanel({ formulas, onSave }) {
   const init = formulas || {};
+  const [open, setOpen] = useState(false);
   const [secExpr, setSecExpr] = useState(init.section || _DEFAULT_SEC);
   const [allExpr, setAllExpr] = useState(init.overall || _DEFAULT_ALL);
   const [secV, setSecV] = useState({ errors:[], warnings:[] });
   const [allV, setAllV] = useState({ errors:[], warnings:[] });
+  const [saved, setSaved] = useState(init);
 
-  function validateSec() { setSecV(validateFormula(secExpr, 'section')); }
-  function validateAll() { setAllV(validateFormula(allExpr, 'overall')); }
+  function validateSec(expr) {
+    setSecV(validateFormula(typeof expr === 'string' ? expr : secExpr, 'section'));
+  }
+  function validateAll(expr) {
+    setAllV(validateFormula(typeof expr === 'string' ? expr : allExpr, 'overall'));
+  }
 
   function handleSave() {
     const sv = validateFormula(secExpr, 'section');
@@ -325,68 +360,72 @@ function InspectionFormulaPanel({ formulas, onSave, onClose }) {
     setSecV(sv);
     setAllV(av);
     if (sv.errors.length > 0 || av.errors.length > 0) return;
-    onSave({ section: secExpr.trim(), overall: allExpr.trim() });
+    const result = { section: secExpr.trim(), overall: allExpr.trim() };
+    setSaved(result);
+    if (onSave) onSave(result);
+    setOpen(false);
+  }
+
+  function handleDiscard() {
+    setSecExpr(saved.section || _DEFAULT_SEC);
+    setAllExpr(saved.overall || _DEFAULT_ALL);
+    setSecV({ errors:[], warnings:[] });
+    setAllV({ errors:[], warnings:[] });
+    setOpen(false);
   }
 
   return (
-    <div onClick={onClose}
-      style={{ position:'fixed', inset:0, zIndex:300, background:'rgba(0,0,0,0.45)',
-        display:'flex', alignItems:'flex-start', justifyContent:'center',
-        padding:'40px 16px 40px', overflowY:'auto' }}>
-      <div onClick={e => e.stopPropagation()}
-        style={{ background:'#fff', borderRadius:12, width:'100%', maxWidth:680,
-          boxShadow:'0 24px 64px rgba(0,0,0,0.22)', fontFamily:'var(--font-sans)', flexShrink:0 }}>
+    <div style={{ marginTop:14, borderTop:'1px solid var(--n-200)', paddingTop:10 }}>
+      <style dangerouslySetInnerHTML={{ __html: _NIF_CSS }} />
 
-        <div style={{ padding:'18px 20px', borderBottom:'1px solid #E5E7EB',
-          display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
-          <div>
-            <div style={{ fontSize:16, fontWeight:700, color:'#111827' }}>Score Formula</div>
-            <div style={{ fontSize:12, color:'#6B7280', marginTop:2 }}>
-              Configure how section and overall scores are calculated for this form
-            </div>
-          </div>
-          <button onClick={onClose}
-            style={{ background:'none', border:'none', fontSize:20, color:'#9CA3AF',
-              cursor:'pointer', padding:'2px 6px', lineHeight:1, marginLeft:16, flexShrink:0 }}>
-            ✕
-          </button>
-        </div>
+      <button
+        onClick={function() { setOpen(function(o) { return !o; }); }}
+        style={{ display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%',
+          background:'none', border:'none', padding:0, cursor:'pointer',
+          fontSize:11, fontWeight:700, color:'var(--n-700)',
+          textTransform:'uppercase', letterSpacing:'0.06em' }}>
+        <span>ƒ Score Formula</span>
+        <span style={{ fontSize:12, color:'var(--n-400)', fontWeight:400, marginLeft:6 }}>
+          {open ? '▾' : '▸'}
+        </span>
+      </button>
 
-        <div style={{ padding:'16px 20px', display:'flex', flexDirection:'column', gap:14 }}>
-          <_FormulaEditor
-            label="Section Score Formula"
-            desc="Applied independently to each section. Use section-scoped variables only."
+      {open && (
+        <div style={{ marginTop:10, maxHeight:'calc(100vh - 460px)', overflowY:'auto', paddingRight:2 }}>
+          <FormulaEditorBlock
+            label="Section Score"
+            desc="Applied to each section. Section-scoped variables only."
             expr={secExpr}
             onChange={setSecExpr}
             scope="section"
             onValidate={validateSec}
             validationResult={secV}
           />
-          <_FormulaEditor
-            label="Overall Score Formula"
-            desc="Applied to the whole form. TotalSections is also available here."
+          <FormulaEditorBlock
+            label="Overall Score"
+            desc="Applied to the whole form. TotalSections also available."
             expr={allExpr}
             onChange={setAllExpr}
             scope="overall"
             onValidate={validateAll}
             validationResult={allV}
           />
+          <div style={{ display:'flex', gap:6, paddingBottom:8 }}>
+            <button
+              onClick={handleDiscard}
+              style={{ flex:1, padding:'6px 0', fontSize:11.5, fontWeight:500, cursor:'pointer',
+                border:'1px solid #D1D5DB', borderRadius:6, background:'#fff', color:'#374151' }}>
+              Discard
+            </button>
+            <button
+              onClick={handleSave}
+              style={{ flex:2, padding:'6px 0', fontSize:11.5, fontWeight:600, cursor:'pointer',
+                border:'none', borderRadius:6, background:'#2563EB', color:'#fff' }}>
+              Save Formula
+            </button>
+          </div>
         </div>
-
-        <div style={{ padding:'14px 20px', borderTop:'1px solid #E5E7EB',
-          display:'flex', justifyContent:'flex-end', gap:10 }}>
-          <button onClick={onClose}
-            style={{ padding:'8px 18px', border:'1px solid #D1D5DB', borderRadius:8,
-              background:'#fff', color:'#374151', fontSize:13, fontWeight:500, cursor:'pointer' }}>
-            Discard
-          </button>
-          <button onClick={handleSave}
-            style={{ padding:'8px 18px', border:'none', borderRadius:8,
-              background:'#2563EB', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-            Save Formula
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
