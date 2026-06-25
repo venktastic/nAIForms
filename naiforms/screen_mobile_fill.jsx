@@ -1,6 +1,9 @@
 // ── Mobile Home — frontline task list ────────────────────────────────────────
 function MobileHome({ onExit }) {
-  const [activeTask, setActiveTask] = useState(null);
+  const [activeTask, setActiveTask]         = useState(null);
+  const [formListType, setFormListType]     = useState(null); // 'Inspection' | 'Audit' | null
+  const [draftPickerForm, setDraftPickerForm] = useState(null);
+  const [resumeDraftData, setResumeDraftData] = useState(null); // { form, draft }
 
   const tasks = {
     today: [
@@ -15,11 +18,29 @@ function MobileHome({ onExit }) {
     ],
   };
 
-  if (activeTask?.type === 'Statistics') {
-    return <StatsFill onExit={() => setActiveTask(null)}/>;
+  function handleDiscardDraft() {
+    const draftId  = resumeDraftData.draft.draftId;
+    const formType = resumeDraftData.form.type;
+    window.deleteDraft(draftId).then(function() {
+      setResumeDraftData(null);
+      setFormListType(formType); // return to form list sheet
+    });
+  }
+
+  if (activeTask && activeTask.type === 'Statistics') {
+    return <StatsFill onExit={function() { setActiveTask(null); }}/>;
+  }
+  if (resumeDraftData) {
+    return <MobileFill
+      draftId={resumeDraftData.draft.draftId}
+      draftAnswers={resumeDraftData.draft.answers}
+      draftStartedAt={resumeDraftData.draft.startedAt}
+      onExit={function() { setResumeDraftData(null); }}
+      onDiscard={handleDiscardDraft}
+    />;
   }
   if (activeTask) {
-    return <MobileFill onExit={() => setActiveTask(null)}/>;
+    return <MobileFill onExit={function() { setActiveTask(null); }}/>;
   }
 
   return (
@@ -44,6 +65,28 @@ function MobileHome({ onExit }) {
           </div>
 
           <div style={{ flex: 1, overflow:'auto' }}>
+            {/* quick-start row */}
+            <div style={{ padding:'10px 14px 4px' }}>
+              <div style={{ fontSize:10, fontWeight:700, textTransform:'uppercase',
+                letterSpacing:'0.06em', color:'var(--n-400)', marginBottom:7 }}>
+                Quick Start
+              </div>
+              <div style={{ display:'flex', gap:8 }}>
+                {['Inspection','Audit'].map(function(type) {
+                  return (
+                    <button key={type}
+                      onClick={function() { setFormListType(type); }}
+                      style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+                        gap:6, padding:'9px 8px', border:'1.5px solid var(--n-200)',
+                        borderRadius:10, background:'var(--n-0)', cursor:'pointer',
+                        fontSize:12, fontWeight:600, color:'var(--n-700)' }}>
+                      {type === 'Audit' ? '📋' : '🔍'} {type}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {[
               { label:'Today',    color:'var(--n-500)',  items: tasks.today   },
               { label:'Overdue',  color:'var(--danger)', items: tasks.overdue },
@@ -77,6 +120,39 @@ function MobileHome({ onExit }) {
               </div>
             ))}
           </div>
+
+          {/* ── Sheet overlays — position:absolute, contained by iphone-screen ── */}
+          {formListType && (
+            <FormListSheet
+              formType={formListType}
+              onClose={function() { setFormListType(null); }}
+              onSelectForm={function(form, count) {
+                if (count > 0) {
+                  setDraftPickerForm(form);
+                } else {
+                  setFormListType(null);
+                  setActiveTask(form);
+                }
+              }}
+            />
+          )}
+          {draftPickerForm && (
+            <DraftPickerSheet
+              form={draftPickerForm}
+              onClose={function() { setDraftPickerForm(null); }}
+              onResume={function(draft) {
+                setFormListType(null);
+                setDraftPickerForm(null);
+                setResumeDraftData({ form: draftPickerForm, draft: draft });
+              }}
+              onStartNew={function() {
+                const f = draftPickerForm;
+                setDraftPickerForm(null);
+                setFormListType(null);
+                setActiveTask(f);
+              }}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -198,12 +274,23 @@ function StatsFill({ onExit }) {
 }
 
 // ── Inspection fill flow — frontline worker ───────────────────────────────────
-function MobileFill({ onExit }) {
+function _findFirstUnanswered(form, answers) {
+  for (let si = 0; si < form.sections.length; si++) {
+    const sec = form.sections[si];
+    for (let qi = 0; qi < sec.questions.length; qi++) {
+      if (!answers[sec.questions[qi].id]) return { si: si, qi: qi };
+    }
+  }
+  return { si: 0, qi: 0 };
+}
+
+function MobileFill({ onExit, draftId, draftAnswers, draftStartedAt, onDiscard }) {
   const form = window.SAMPLE_INSPECTION;
-  const [sIdx, setSIdx] = useState(0);
-  const [qIdx, setQIdx] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [screen, setScreen] = useState('intro'); // intro, question, done
+  const _initPos = draftId ? _findFirstUnanswered(form, draftAnswers || {}) : { si:0, qi:0 };
+  const [sIdx, setSIdx] = useState(_initPos.si);
+  const [qIdx, setQIdx] = useState(_initPos.qi);
+  const [answers, setAnswers] = useState(draftId ? (draftAnswers || {}) : {});
+  const [screen, setScreen] = useState(draftId ? 'question' : 'intro'); // intro, question, done
 
   const section = form.sections[sIdx];
   const question = section?.questions[qIdx];
@@ -266,8 +353,11 @@ function MobileFill({ onExit }) {
 
           {screen === 'question' && question && (
             <>
+              {draftId && (
+                <ResumeBanner startedAt={draftStartedAt} onDiscard={onDiscard} />
+              )}
               <div style={{ padding: '8px 20px', borderBottom:'1px solid var(--n-100)', display:'flex', alignItems:'center', gap: 10 }}>
-                <button className="btn ghost sm" onClick={()=>setScreen('intro')}>✕</button>
+                <button className="btn ghost sm" onClick={function() { draftId ? onExit() : setScreen('intro'); }}>✕</button>
                 <div style={{ flex: 1, height: 4, background:'var(--n-100)', borderRadius: 4, overflow:'hidden' }}>
                   <div style={{ height:'100%', width: `${(answered/totalQs)*100}%`, background:'var(--brand-700)' }}/>
                 </div>
